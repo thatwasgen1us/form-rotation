@@ -1,10 +1,27 @@
 import { useState, useMemo } from 'react';
 import { useGetBaseBalanceQuery } from '../api/api';
+import { skipToken } from '@reduxjs/toolkit/query';
 
-interface EquipmentItem {
-  "Сайт": string;
+interface BalanceSiteItem {
   "Название основного средства": string;
   "Основное средство": string;
+  "Сайт": string;
+}
+
+interface RefundLogisticItem {
+  "БС": string;
+  "Код ПО": string;
+  "Кол-во": number;
+  "Комментарий логиста": string | null;
+  "Куда ": string;
+  "Название основного средства": string;
+  "ОС": string;
+  "№ заявки": string;
+}
+
+interface ApiResponse {
+  balance_site: BalanceSiteItem[];
+  refund_logistic: RefundLogisticItem[];
 }
 
 interface DemontageProps {
@@ -23,6 +40,7 @@ interface TableRow {
   sppElement: string;
   destination: string;
   selected: boolean;
+  requestNumber?: string;
 }
 
 const Demontage = ({ 
@@ -35,15 +53,23 @@ const Demontage = ({
   const [baseStation, setBaseStation] = useState<string>('NS00');
   const [nameFilter, setNameFilter] = useState<string>('');
   const [ocFilter, setOcFilter] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'balance' | 'refund'>('balance');
 
-  const { data: apiData = [], isFetching } = useGetBaseBalanceQuery(baseStation, {
-    skip: !baseStation.startsWith('NS00') || baseStation.length !== 8,
-  });
+  // Remove the type assertion and handle the data properly
+  const { data, isFetching } = useGetBaseBalanceQuery(
+    baseStation.startsWith('NS00') && baseStation.length === 8 ? baseStation : skipToken
+  );
 
-  const tableData: TableRow[] = useMemo(() => {
-    if (!apiData?.length) return [];
+  // Type guard to check if data is ApiResponse
+  const isApiResponse = (data: any): data is ApiResponse => {
+    return data && Array.isArray(data.balance_site) && Array.isArray(data.refund_logistic);
+  };
+
+  // Balance site table data
+  const balanceTableData: TableRow[] = useMemo(() => {
+    if (!isApiResponse(data) || !data?.balance_site?.length) return [];
     
-    return apiData.map((item: EquipmentItem, index: number) => {
+    return data.balance_site.map((item: BalanceSiteItem, index: number) => {
       const id = `${item["Основное средство"]}-${index}`;
       return {
         id,
@@ -56,15 +82,44 @@ const Demontage = ({
         selected: selectedRows[id] || false
       };
     });
-  }, [apiData, baseStation, rowWarehouses, selectedRows]);
+  }, [data, baseStation, rowWarehouses, selectedRows]);
 
-  const filteredData = useMemo(() => {
-    return tableData.filter(row => {
+  // Refund logistic table data
+  const refundTableData: TableRow[] = useMemo(() => {
+    if (!isApiResponse(data) || !data?.refund_logistic?.length) return [];
+    
+    return data.refund_logistic.map((item: RefundLogisticItem, index: number) => {
+      const id = `${item["ОС"]}-${index}`;
+      return {
+        id,
+        ns: item["БС"] || baseStation,
+        oc: index + 1,
+        name: item["Название основного средства"],
+        quantity: item["Кол-во"] || 1,
+        sppElement: item["ОС"],
+        destination: item["Куда "] || rowWarehouses[id] || 'Не выбрано',
+        selected: selectedRows[id] || false,
+        requestNumber: item["№ заявки"]
+      };
+    });
+  }, [data, baseStation, rowWarehouses, selectedRows]);
+
+  // Rest of the component remains the same...
+  const filteredBalanceData = useMemo(() => {
+    return balanceTableData.filter(row => {
       const matchesName = row.name.toLowerCase().includes(nameFilter.toLowerCase());
       const matchesOc = ocFilter ? row.sppElement.toString().includes(ocFilter) : true;
       return matchesName && matchesOc;
     });
-  }, [tableData, nameFilter, ocFilter]);
+  }, [balanceTableData, nameFilter, ocFilter]);
+
+  const filteredRefundData = useMemo(() => {
+    return refundTableData.filter(row => {
+      const matchesName = row.name.toLowerCase().includes(nameFilter.toLowerCase());
+      const matchesOc = ocFilter ? row.sppElement.toString().includes(ocFilter) : true;
+      return matchesName && matchesOc;
+    });
+  }, [refundTableData, nameFilter, ocFilter]);
 
   const handleStationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setBaseStation(e.target.value.toUpperCase());
@@ -85,7 +140,8 @@ const Demontage = ({
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     const isChecked = e.target.checked;
-    const newSelected = tableData.reduce((acc, row) => {
+    const currentData = activeTab === 'balance' ? balanceTableData : refundTableData;
+    const newSelected = currentData.reduce((acc, row) => {
       acc[row.id] = isChecked;
       return acc;
     }, {} as Record<string, boolean>);
@@ -98,10 +154,29 @@ const Demontage = ({
   };
 
   const selectedCount = Object.values(selectedRows).filter(Boolean).length;
+  const currentData = activeTab === 'balance' ? filteredBalanceData : filteredRefundData;
+  const totalData = activeTab === 'balance' ? balanceTableData : refundTableData;
 
   return (
     <div className="max-w-6xl p-4 mx-auto">
-      <h1 className="mb-6 text-2xl font-bold">Демонтаж ОС</h1>
+      <h1 className="mb-6 text-2xl font-bold">Демонтаж</h1>
+
+      <div className="mb-4">
+        <div className="flex border-b">
+          <button
+            className={`px-4 py-2 font-medium ${activeTab === 'balance' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+            onClick={() => setActiveTab('balance')}
+          >
+            Основные средства
+          </button>
+          <button
+            className={`px-4 py-2 font-medium ${activeTab === 'refund' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+            onClick={() => setActiveTab('refund')}
+          >
+            Логистика возвратов
+          </button>
+        </div>
+      </div>
 
       <div className="mb-8">
         <div className="flex flex-wrap items-end gap-4">
@@ -156,7 +231,7 @@ const Demontage = ({
         <div className="mb-4 text-center">Загрузка данных...</div>
       )}
 
-      {filteredData.length > 0 ? (
+      {currentData.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white border border-gray-200">
             <thead>
@@ -165,19 +240,20 @@ const Demontage = ({
                   <input 
                     type="checkbox" 
                     onChange={handleSelectAll}
-                    checked={selectedCount === tableData.length && tableData.length > 0}
+                    checked={selectedCount === totalData.length && totalData.length > 0}
                     className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
                   />
                 </th>
                 <th className="px-4 py-2 border">№ OC</th>
                 <th className="px-4 py-2 border">Наименование</th>
                 <th className="px-4 py-2 border">Количество</th>
+                {activeTab === 'refund' && <th className="px-4 py-2 border">№ заявки</th>}
                 <th className="px-4 py-2 border">СПП Элемент</th>
                 <th className="px-4 py-2 border">Куда</th>
               </tr>
             </thead>
             <tbody>
-              {filteredData.map((row: TableRow) => (
+              {currentData.map((row: TableRow) => (
                 <tr key={row.id} className={row.selected ? 'bg-blue-50' : (row.oc % 2 === 0 ? 'bg-white' : 'bg-gray-50')}>
                   <td className="px-4 py-2 text-center border">
                     <input 
@@ -187,13 +263,16 @@ const Demontage = ({
                       className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
                     />
                   </td>
-                  <td className="px-4 py-2 border">{row.sppElement}</td>
+                  <td className="px-4 py-2 border">{row.oc}</td>
                   <td className="px-4 py-2 border">{row.name}</td>
                   <td className="px-4 py-2 text-center border">{row.quantity}</td>
-                  <td className="px-4 py-2 text-center border">{row.oc}</td>
+                  {activeTab === 'refund' && (
+                    <td className="px-4 py-2 border">{row.requestNumber}</td>
+                  )}
+                  <td className="px-4 py-2 text-center border">{row.sppElement}</td>
                   <td className="px-4 py-2 border">
                     <select
-                      value={rowWarehouses[row.id] || 'Не выбрано'}
+                      value={row.destination}
                       onChange={(e) => handleWarehouseChange(row.id, e.target.value)}
                       className="w-full p-1 border border-gray-300 rounded"
                     >
@@ -209,12 +288,12 @@ const Demontage = ({
             </tbody>
           </table>
           <div className="mt-2 text-sm text-gray-600">
-            Выбрано: {selectedCount} из {tableData.length}
+            Выбрано: {selectedCount} из {totalData.length}
           </div>
         </div>
       ) : !isFetching && baseStation.startsWith('NS') && (
         <div className="text-center text-gray-500">
-          {tableData.length === 0 
+          {totalData.length === 0 
             ? `Нет данных для базовой станции ${baseStation}`
             : 'Нет результатов по заданным фильтрам'}
         </div>
