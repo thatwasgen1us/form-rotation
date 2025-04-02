@@ -132,7 +132,7 @@ const Montage = ({ selectedRows, onSelectChange }: MontageProps) => {
 
           <div className="flex-1 min-w-[200px]">
             <label htmlFor="ocFilter" className="block mb-2 font-medium">
-              Фильтр по №OC:
+              Фильтр/СПП:
             </label>
             <input
               type="text"
