@@ -140,7 +140,7 @@ const Montage = ({ selectedRows, onSelectChange }: MontageProps) => {
               value={ocFilter}
               onChange={handleOcFilterChange}
               className="w-full p-2 border border-gray-300 rounded"
-              placeholder="Введите номер OC"
+              placeholder="Введите номер СПП"
             />
           </div>
         </div>
