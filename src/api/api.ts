@@ -46,9 +46,25 @@ export const {
 
 // Типы для оборудования
 interface EquipmentItem {
-  "Сайт": string;
-  "Название основного средства": string;
-  "Основное средство": string;
+  "balance_site": FirstObj[],
+  "refund_logistic": SecondObj[]
+}
+
+interface FirstObj {
+  "Название основного средства": string,
+  "Основное средство": string,
+  "Сайт": string
+}
+
+interface SecondObj {
+  "БС": string,
+  "Код ПО": string,
+  "Кол-во": number,
+  "Комментарий логиста": null | string,
+  "Куда ": string,
+  "Название основного средства": string,
+  "ОС": string,
+  "№ заявки": string
 }
 
 export interface StorageItem {
