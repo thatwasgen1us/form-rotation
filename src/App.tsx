@@ -7,6 +7,16 @@ export interface FormItem {
   id: string;
   type: 'demontage' | 'montage';
   destination?: string;
+  data: {
+    name: string;
+    sppElement: string;
+    quantity: number;
+    count?: string;
+    requestNumber?: string;
+    baseStation?: string;
+    warehouse?: string;
+    ns?: string;
+  };
 }
 
 function App() {
@@ -15,25 +25,30 @@ function App() {
   const [rowWarehouses, setRowWarehouses] = useState<Record<string, string>>({});
   const [sendForm] = useSendFormMutation();
   const [showSelectedList, setShowSelectedList] = useState(false);
+  const [demontageData, setDemontageData] = useState<Record<string, any>>({});
+  const [montageData, setMontageData] = useState<Record<string, any>>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
-      // Подготовка данных для отправки
+      // Подготовка данных для отправки - демонтаж
       const demontageItems = Object.entries(demontageSelected)
         .filter(([_, selected]) => selected)
         .map(([id]) => ({
           id,
+          type: 'demontage' as const,
           destination: rowWarehouses[id] || 'Не выбрано',
-          type: 'demontage' as const
+          data: demontageData[id] || {}
         }));
 
+      // Подготовка данных для отправки - монтаж
       const montageItems = Object.entries(montageSelected)
         .filter(([_, selected]) => selected)
         .map(([id]) => ({
           id,
-          type: 'montage' as const
+          type: 'montage' as const,
+          data: montageData[id] || {}
         }));
 
       const allItems = [...demontageItems, ...montageItems];
@@ -51,27 +66,31 @@ function App() {
       setDemontageSelected({});
       setMontageSelected({});
       setRowWarehouses({});
+      setDemontageData({});
+      setMontageData({});
     } catch (error) {
       alert('Ошибка при отправке данных');
       console.error(error);
     }
   };
 
-  // Получаем список выбранных элементов
-  const getSelectedItems = () => {
+  // Получаем список выбранных элементов с полными данными
+  const getSelectedItems = (): FormItem[] => {
     const demontageItems = Object.entries(demontageSelected)
       .filter(([_, selected]) => selected)
       .map(([id]) => ({
         id,
         type: 'demontage' as const,
-        destination: rowWarehouses[id] || 'Не выбрано'
+        destination: rowWarehouses[id] || 'Не выбрано',
+        data: demontageData[id] || {}
       }));
 
     const montageItems = Object.entries(montageSelected)
       .filter(([_, selected]) => selected)
       .map(([id]) => ({
         id,
-        type: 'montage' as const
+        type: 'montage' as const,
+        data: montageData[id] || {}
       }));
 
     return [...demontageItems, ...montageItems];
@@ -88,10 +107,12 @@ function App() {
           onSelectChange={setDemontageSelected}
           rowWarehouses={rowWarehouses}
           onWarehouseChange={setRowWarehouses}
+          onSelectedDataChange={setDemontageData}
         />
         <Montage 
           selectedRows={montageSelected}
           onSelectChange={setMontageSelected}
+          onSelectedDataChange={setMontageData}
         />
       </div>
       
@@ -101,15 +122,21 @@ function App() {
           <h3 className="mb-2 font-bold">Выбранные элементы:</h3>
           <ul className="space-y-2">
             {selectedItems.map((item) => (
-              <li key={`${item.type}-${item.id}`} className="flex items-center">
-                <span className="font-medium">
-                  {item.type === 'demontage' ? 'Демонтаж' : 'Монтаж'}: {item.id}
-                </span>
-                {item.type === 'demontage' && (
-                  <span className="ml-2 text-sm text-gray-600">
-                    (Склад: {item.destination})
+              <li key={`${item.type}-${item.id}`} className="flex flex-col">
+                <div className="flex items-center">
+                  <span className="font-medium">
+                    {item.type === 'demontage' ? 'Демонтаж' : 'Монтаж'}: {item.data.name || item.id}
                   </span>
-                )}
+                  {item.type === 'demontage' && (
+                    <span className="ml-2 text-sm text-gray-600">
+                      (Склад: {item.destination})
+                    </span>
+                  )}
+                </div>
+                <div className="text-sm text-gray-600">
+                  СПП: {item.data.sppElement}
+                  {item.data.requestNumber && ` | Заявка: ${item.data.requestNumber}`}
+                </div>
               </li>
             ))}
           </ul>
