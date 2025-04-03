@@ -1,15 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { StorageItem, useGetStorageBalanceQuery } from '../api/api';
 
 interface MontageProps {
   selectedRows: Record<string, boolean>;
   onSelectChange: (selected: Record<string, boolean>) => void;
+  onSelectedDataChange: (data: Record<string, any>) => void;
 }
 
 interface TableRow {
   id: string;
   ns: string;
-  oc: string; // Изменено на string, так как в API это может быть строка
+  oc: string;
   name: string;
   quantity: number;
   sppElement: string;
@@ -20,7 +21,11 @@ interface TableRow {
 
 const warehouses = ['KZ01', 'K026', 'KZ02', 'K046', 'K018', 'KZ03', 'T003', 'T001'] as const;
 
-const Montage = ({ selectedRows, onSelectChange }: MontageProps) => {
+const Montage = ({ 
+  selectedRows, 
+  onSelectChange,
+  onSelectedDataChange 
+}: MontageProps) => {
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>(warehouses[0]);
   const [nameFilter, setNameFilter] = useState<string>('');
   const [ocFilter, setOcFilter] = useState<string>('');
@@ -37,7 +42,7 @@ const Montage = ({ selectedRows, onSelectChange }: MontageProps) => {
       return {
         id,
         ns: item["Партия"] || selectedWarehouse,
-        oc: String(item["Основное средство"]), // Явное преобразование в строку
+        oc: String(item["Основное средство"]),
         name: item["КрТекстМатериала"] || 'Неизвестное название',
         quantity: 1,
         sppElement: item["СПП-элемент"] || 'Неизвестный элемент',
@@ -47,6 +52,28 @@ const Montage = ({ selectedRows, onSelectChange }: MontageProps) => {
       };
     });
   }, [apiData, selectedWarehouse, selectedRows]);
+
+  // Отправка данных выбранных строк в родительский компонент
+  useEffect(() => {
+    const selectedData: Record<string, any> = {};
+    
+    tableData.forEach(row => {
+      if (selectedRows[row.id]) {
+        selectedData[row.id] = {
+          name: row.name,
+          sppElement: row.sppElement,
+          quantity: row.quantity,
+          count: row.count,
+          warehouse: selectedWarehouse,
+          destination: row.destination,
+          ns: row.ns,
+          oc: row.oc
+        };
+      }
+    });
+
+    onSelectedDataChange(selectedData);
+  }, [selectedRows, tableData, selectedWarehouse, onSelectedDataChange]);
 
   const filteredData = useMemo(() => {
     const lowerNameFilter = nameFilter.toLowerCase();
