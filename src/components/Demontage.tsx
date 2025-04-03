@@ -89,7 +89,7 @@ const Demontage = ({
     if (!isApiResponse(data) || !data?.refund_logistic?.length) return [];
 
     return data.refund_logistic.map((item: RefundLogisticItem, index: number) => {
-      const id = `${item["ОС"]}-${index}`;
+      const id = `${item["ОС"]}`;
       return {
         id,
         ns: item["БС"] || baseStation,
