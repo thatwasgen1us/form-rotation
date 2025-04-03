@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { StorageItem, useGetStorageBalanceQuery } from '../api/api';
 
-
 interface MontageProps {
   selectedRows: Record<string, boolean>;
   onSelectChange: (selected: Record<string, boolean>) => void;
@@ -10,7 +9,7 @@ interface MontageProps {
 interface TableRow {
   id: string;
   ns: string;
-  oc: number;
+  oc: string; // Изменено на string, так как в API это может быть строка
   name: string;
   quantity: number;
   sppElement: string;
@@ -19,9 +18,10 @@ interface TableRow {
   count: string;
 }
 
+const warehouses = ['KZ01', 'K026', 'KZ02', 'K046', 'K018', 'KZ03', 'T003', 'T001'] as const;
+
 const Montage = ({ selectedRows, onSelectChange }: MontageProps) => {
-  const warehouses = ['KZ01', 'K026', 'KZ02', 'K046', 'K018', 'KZ03'];
-  const [selectedWarehouse, setSelectedWarehouse] = useState<string>('KZ01');
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>(warehouses[0]);
   const [nameFilter, setNameFilter] = useState<string>('');
   const [ocFilter, setOcFilter] = useState<string>('');
 
@@ -37,7 +37,7 @@ const Montage = ({ selectedRows, onSelectChange }: MontageProps) => {
       return {
         id,
         ns: item["Партия"] || selectedWarehouse,
-        oc: index + 1,
+        oc: String(item["Основное средство"]), // Явное преобразование в строку
         name: item["КрТекстМатериала"] || 'Неизвестное название',
         quantity: 1,
         sppElement: item["СПП-элемент"] || 'Неизвестный элемент',
@@ -50,17 +50,13 @@ const Montage = ({ selectedRows, onSelectChange }: MontageProps) => {
 
   const filteredData = useMemo(() => {
     const lowerNameFilter = nameFilter.toLowerCase();
+    const lowerOcFilter = ocFilter.toLowerCase();
 
     return tableData.filter(row => {
-      const nameMatch = row.name
-        ? row.name.toLowerCase().includes(lowerNameFilter)
-        : false;
-
-      const ocMatch = ocFilter
-        ? row.sppElement?.toString().includes(ocFilter) ?? false
-        : true;
-
-      return nameMatch && ocMatch;
+      const nameMatch = row.name.toLowerCase().includes(lowerNameFilter);
+      const ocMatch = row.sppElement.toLowerCase().includes(lowerOcFilter);
+      
+      return nameMatch && (ocFilter ? ocMatch : true);
     });
   }, [tableData, nameFilter, ocFilter]);
 
@@ -91,6 +87,12 @@ const Montage = ({ selectedRows, onSelectChange }: MontageProps) => {
   };
 
   const selectedCount = Object.values(selectedRows).filter(Boolean).length;
+  const allSelected = tableData.length > 0 && selectedCount === tableData.length;
+
+  const getRowClassName = (row: TableRow) => {
+    const baseClass = row.selected ? 'bg-blue-50' : 'bg-white';
+    return `${baseClass} hover:bg-gray-100`;
+  };
 
   return (
     <div className="max-w-6xl p-4 mx-auto">
@@ -132,7 +134,7 @@ const Montage = ({ selectedRows, onSelectChange }: MontageProps) => {
 
           <div className="flex-1 min-w-[200px]">
             <label htmlFor="ocFilter" className="block mb-2 font-medium">
-              Фильтр/СПП:
+              Фильтр по СПП:
             </label>
             <input
               type="text"
@@ -159,7 +161,7 @@ const Montage = ({ selectedRows, onSelectChange }: MontageProps) => {
                   <input
                     type="checkbox"
                     onChange={handleSelectAll}
-                    checked={selectedCount === tableData.length && tableData.length > 0}
+                    checked={allSelected}
                     className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
                   />
                 </th>
@@ -173,7 +175,7 @@ const Montage = ({ selectedRows, onSelectChange }: MontageProps) => {
             </thead>
             <tbody>
               {filteredData.map((row: TableRow) => (
-                <tr key={row.id} className={row.selected ? 'bg-blue-50' : (row.oc % 2 === 0 ? 'bg-white' : 'bg-gray-50')}>
+                <tr key={row.id} className={getRowClassName(row)}>
                   <td className="px-4 py-2 text-center border">
                     <input
                       type="checkbox"
@@ -182,7 +184,7 @@ const Montage = ({ selectedRows, onSelectChange }: MontageProps) => {
                       className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
                     />
                   </td>
-                  <td className="px-4 py-2 border">{'1'}</td>
+                  <td className="px-4 py-2 border">{row.oc}</td>
                   <td className="px-4 py-2 border">{row.name}</td>
                   <td className="px-4 py-2 text-center border">{row.count}</td>
                   <td className="px-4 py-2 text-center border">{row.sppElement}</td>
