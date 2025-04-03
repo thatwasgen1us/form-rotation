@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
-import { useGetBaseBalanceQuery } from '../api/api';
 import { skipToken } from '@reduxjs/toolkit/query';
+import { useMemo, useState, useEffect } from 'react';
+import { useGetBaseBalanceQuery } from '../api/api';
 
 interface BalanceSiteItem {
   "Название основного средства": string;
@@ -29,6 +29,7 @@ interface DemontageProps {
   onSelectChange: (selected: Record<string, boolean>) => void;
   rowWarehouses: Record<string, string>;
   onWarehouseChange: (warehouses: Record<string, string>) => void;
+  onSelectedDataChange: (data: Record<string, any>) => void;
 }
 
 interface TableRow {
@@ -43,11 +44,12 @@ interface TableRow {
   requestNumber?: string;
 }
 
-const Demontage = ({ 
-  selectedRows, 
+const Demontage = ({
+  selectedRows,
   onSelectChange,
   rowWarehouses,
-  onWarehouseChange
+  onWarehouseChange,
+  onSelectedDataChange
 }: DemontageProps) => {
   const warehouses = ['Не выбрано', 'KZ01', 'K026', 'KZ02', 'K046', 'K018', 'KZ03'];
   const [baseStation, setBaseStation] = useState<string>('NS00');
@@ -55,12 +57,10 @@ const Demontage = ({
   const [ocFilter, setOcFilter] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'balance' | 'refund'>('balance');
 
-  // Remove the type assertion and handle the data properly
   const { data, isFetching } = useGetBaseBalanceQuery(
     baseStation.startsWith('NS00') && baseStation.length === 8 ? baseStation : skipToken
   );
 
-  // Type guard to check if data is ApiResponse
   const isApiResponse = (data: any): data is ApiResponse => {
     return data && Array.isArray(data.balance_site) && Array.isArray(data.refund_logistic);
   };
@@ -68,7 +68,7 @@ const Demontage = ({
   // Balance site table data
   const balanceTableData: TableRow[] = useMemo(() => {
     if (!isApiResponse(data) || !data?.balance_site?.length) return [];
-    
+
     return data.balance_site.map((item: BalanceSiteItem, index: number) => {
       const id = `${item["Основное средство"]}-${index}`;
       return {
@@ -87,7 +87,7 @@ const Demontage = ({
   // Refund logistic table data
   const refundTableData: TableRow[] = useMemo(() => {
     if (!isApiResponse(data) || !data?.refund_logistic?.length) return [];
-    
+
     return data.refund_logistic.map((item: RefundLogisticItem, index: number) => {
       const id = `${item["ОС"]}-${index}`;
       return {
@@ -104,7 +104,30 @@ const Demontage = ({
     });
   }, [data, baseStation, rowWarehouses, selectedRows]);
 
-  // Rest of the component remains the same...
+  // Отправка данных выбранных строк в родительский компонент
+  useEffect(() => {
+    const selectedData: Record<string, any> = {};
+    
+    // Обрабатываем данные из активной вкладки
+    const currentData = activeTab === 'balance' ? balanceTableData : refundTableData;
+    
+    currentData.forEach(row => {
+      if (selectedRows[row.id]) {
+        selectedData[row.id] = {
+          name: row.name,
+          sppElement: row.sppElement,
+          quantity: row.quantity,
+          requestNumber: row.requestNumber,
+          baseStation: baseStation,
+          destination: row.destination,
+          ns: row.ns
+        };
+      }
+    });
+
+    onSelectedDataChange(selectedData);
+  }, [selectedRows, balanceTableData, refundTableData, activeTab, baseStation, onSelectedDataChange]);
+
   const filteredBalanceData = useMemo(() => {
     return balanceTableData.filter(row => {
       const matchesName = row.name.toLowerCase().includes(nameFilter.toLowerCase());
@@ -196,7 +219,7 @@ const Demontage = ({
               title="Введите номер в формате NS001120"
             />
           </div>
-          
+
           <div className="flex-1 min-w-[200px]">
             <label htmlFor="nameFilter" className="block mb-2 font-medium">
               Фильтр по названию:
@@ -210,7 +233,7 @@ const Demontage = ({
               placeholder="Введите часть названия"
             />
           </div>
-          
+
           <div className="flex-1 min-w-[200px]">
             <label htmlFor="ocFilter" className="block mb-2 font-medium">
               Фильтр по №OC:
@@ -237,8 +260,8 @@ const Demontage = ({
             <thead>
               <tr className="bg-gray-100">
                 <th className="w-10 px-4 py-2 border">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     onChange={handleSelectAll}
                     checked={selectedCount === totalData.length && totalData.length > 0}
                     className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
@@ -256,8 +279,8 @@ const Demontage = ({
               {currentData.map((row: TableRow) => (
                 <tr key={row.id} className={row.selected ? 'bg-blue-50' : (row.oc % 2 === 0 ? 'bg-white' : 'bg-gray-50')}>
                   <td className="px-4 py-2 text-center border">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={row.selected}
                       onChange={() => handleRowSelect(row.id)}
                       className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
@@ -293,7 +316,7 @@ const Demontage = ({
         </div>
       ) : !isFetching && baseStation.startsWith('NS') && (
         <div className="text-center text-gray-500">
-          {totalData.length === 0 
+          {totalData.length === 0
             ? `Нет данных для базовой станции ${baseStation}`
             : 'Нет результатов по заданным фильтрам'}
         </div>
