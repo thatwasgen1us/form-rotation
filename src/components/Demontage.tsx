@@ -159,7 +159,7 @@ const Demontage = ({
 
   return (
     <div className="max-w-6xl p-4 mx-auto">
-      <h1 className="mb-6 text-2xl font-bold">Демонтаж</h1>
+      <h1 className="mb-6 text-2xl font-bold">Демонтаж ОС</h1>
 
       <div className="mb-4">
         <div className="flex border-b">
