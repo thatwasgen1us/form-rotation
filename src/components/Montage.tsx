@@ -38,8 +38,9 @@ const Montage = ({
     if (!apiData?.length) return [];
 
     return apiData.map((item: StorageItem,) => {
+      const id = `${item["СПП-элемент"]}`;
       return {
-        id: item['СПП-элемент'],
+        id,
         ns: item["Партия"] || selectedWarehouse,
         oc: String(item["Основное средство"]),
         name: item["КрТекстМатериала"] || 'Неизвестное название',
