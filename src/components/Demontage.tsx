@@ -271,7 +271,6 @@ const Demontage = ({
                 <th className="px-4 py-2 border">Наименование</th>
                 <th className="px-4 py-2 border">Количество</th>
                 {activeTab === 'refund' && <th className="px-4 py-2 border">№ заявки</th>}
-                <th className="px-4 py-2 border">СПП Элемент</th>
                 <th className="px-4 py-2 border">Куда</th>
               </tr>
             </thead>
@@ -286,13 +285,12 @@ const Demontage = ({
                       className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
                     />
                   </td>
-                  <td className="px-4 py-2 border">{row.oc}</td>
+                  <td className="px-4 py-2 text-center border">{row.sppElement}</td>
                   <td className="px-4 py-2 border">{row.name}</td>
                   <td className="px-4 py-2 text-center border">{row.quantity}</td>
                   {activeTab === 'refund' && (
                     <td className="px-4 py-2 border">{row.requestNumber}</td>
                   )}
-                  <td className="px-4 py-2 text-center border">{row.sppElement}</td>
                   <td className="px-4 py-2 border">
                     <select
                       value={row.destination}
