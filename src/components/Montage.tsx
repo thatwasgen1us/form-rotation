@@ -37,8 +37,8 @@ const Montage = ({
   const tableData: TableRow[] = useMemo(() => {
     if (!apiData?.length) return [];
 
-    return apiData.map((item: StorageItem, index: number) => {
-      const id = `${item["СПП-элемент"] || 'unknown'}-${index}`;
+    return apiData.map((item: StorageItem,) => {
+      const id = `${item["СПП-элемент"] || 'unknown'}`;
       return {
         id,
         ns: item["Партия"] || selectedWarehouse,
