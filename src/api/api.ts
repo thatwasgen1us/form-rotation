@@ -8,7 +8,7 @@ interface FormItem {
 
 export const Api = createApi({
   reducerPath: "api",
-  baseQuery: fetchBaseQuery({ 
+  baseQuery: fetchBaseQuery({
     baseUrl: "https://10.77.28.213:8000/",
     prepareHeaders: (headers) => {
       headers.set('Content-Type', 'application/json');
@@ -22,14 +22,14 @@ export const Api = createApi({
     GetStorageBalance: builder.query<StorageItem[], string>({
       query: (base) => `storage/${base}`,
     }),
-    SendForm: builder.mutation<{ 
-      message: string, 
-      success: boolean 
-    }, { 
-      items: FormItem[] 
+    SendForm: builder.mutation<{
+      message: string,
+      success: boolean
+    }, {
+      items: FormItem[]
     }>({
       query: (body) => ({
-        url: 'form/',
+        url: '/report',
         method: 'POST',
         body: JSON.stringify(body),
       }),
@@ -37,11 +37,10 @@ export const Api = createApi({
   }),
 });
 
-// Экспортируем все необходимые хуки
-export const { 
+export const {
   useGetBaseBalanceQuery,
   useGetStorageBalanceQuery,
-  useSendFormMutation 
+  useSendFormMutation
 } = Api;
 
 // Типы для оборудования
@@ -70,7 +69,8 @@ interface SecondObj {
 export interface StorageItem {
   "Количество запаса в партии": string;
   "КрТекстМатериала": string;
-   "Партия": string;
+  "Партия": string;
   "СПП-элемент": string;
   "Склад": string;
+  "Основное средство" : string
 }
