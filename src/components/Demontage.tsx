@@ -35,7 +35,7 @@ interface DemontageProps {
 interface TableRow {
   id: string;
   ns: string;
-  oc: string | number;
+  sap: string | number;
   name: string;
   quantity?: number;
   destination: string;
@@ -73,7 +73,7 @@ const Demontage = ({
       return {
         id,
         ns: item["Сайт"] || baseStation,
-        oc: item["Основное средство"],
+        sap: item["Основное средство"],
         name: item["Название основного средства"],
         destination: rowWarehouses[id] || 'Не выбрано',
         selected: selectedRows[id] || false
@@ -90,7 +90,7 @@ const Demontage = ({
       return {
         id,
         ns: item["БС"] || baseStation,
-        oc: index + 1,
+        sap: index + 1,
         name: item["Название основного средства"],
         quantity: item["Кол-во"] || 1,
         destination: item["Куда "] || rowWarehouses[id] || 'Не выбрано',
@@ -115,7 +115,7 @@ const Demontage = ({
           baseStation: baseStation,
           destination: row.destination,
           ns: row.ns,
-          oc: row.oc
+          sap: row.sap
         };
       }
     });
@@ -126,7 +126,7 @@ const Demontage = ({
   const filteredBalanceData = useMemo(() => {
     return balanceTableData.filter(row => {
       const matchesName = row.name.toLowerCase().includes(nameFilter.toLowerCase());
-      const matchesOc = ocFilter ? String(row.oc).includes(ocFilter) : true;
+      const matchesOc = ocFilter ? String(row.sap).includes(ocFilter) : true;
       return matchesName && matchesOc;
     });
   }, [balanceTableData, nameFilter, ocFilter]);
@@ -134,7 +134,7 @@ const Demontage = ({
   const filteredRefundData = useMemo(() => {
     return refundTableData.filter(row => {
       const matchesName = row.name.toLowerCase().includes(nameFilter.toLowerCase());
-      const matchesOc = ocFilter ? String(row.oc).includes(ocFilter) : true;
+      const matchesOc = ocFilter ? String(row.sap).includes(ocFilter) : true;
       return matchesName && matchesOc;
     });
   }, [refundTableData, nameFilter, ocFilter]);
@@ -271,7 +271,7 @@ const Demontage = ({
             </thead>
             <tbody>
               {currentData.map((row) => (
-                <tr key={row.id} className={row.selected ? 'bg-blue-50' : (Number(row.oc) % 2 === 0 ? 'bg-white' : 'bg-gray-50')}>
+                <tr key={row.id} className={row.selected ? 'bg-blue-50' : (Number(row.sap) % 2 === 0 ? 'bg-white' : 'bg-gray-50')}>
                   <td className="px-4 py-2 text-center border">
                     <input
                       type="checkbox"
@@ -280,7 +280,7 @@ const Demontage = ({
                       className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
                     />
                   </td>
-                  <td className="px-4 py-2 border">{row.oc}</td>
+                  <td className="px-4 py-2 border">{row.sap}</td>
                   <td className="px-4 py-2 border">{row.name}</td>
                   <td className="px-4 py-2 text-center border">{row.quantity || 1}</td>
                   {activeTab === 'refund' && (
