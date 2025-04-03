@@ -36,9 +36,10 @@ const Montage = ({
 
   const tableData: TableRow[] = useMemo(() => {
     if (!apiData?.length) return [];
-
-    return apiData.map((item: StorageItem,) => {
-      const id = `${item["СПП-элемент"]}`;
+  
+    return apiData.map((item: StorageItem, index: number) => {
+      // Добавляем index к id для уникальности
+      const id = `${item["СПП-элемент"]}-${index}`;
       return {
         id,
         ns: item["Партия"] || selectedWarehouse,
@@ -100,7 +101,11 @@ const Montage = ({
   };
 
   const handleRowSelect = (id: string) => {
-    const newSelected = { ...selectedRows, [id]: !selectedRows[id] };
+    const newSelected = { 
+      ...selectedRows, 
+      [id]: !selectedRows[id] 
+    };
+    console.log('Selected rows:', newSelected); // Для отладки
     onSelectChange(newSelected);
   };
 
