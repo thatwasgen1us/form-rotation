@@ -35,10 +35,9 @@ interface DemontageProps {
 interface TableRow {
   id: string;
   ns: string;
-  oc: number;
+  oc: string | number;
   name: string;
-  quantity: number;
-  sppElement: string;
+  quantity?: number;
   destination: string;
   selected: boolean;
   requestNumber?: string;
@@ -74,10 +73,8 @@ const Demontage = ({
       return {
         id,
         ns: item["Сайт"] || baseStation,
-        oc: index + 1,
+        oc: item["Основное средство"],
         name: item["Название основного средства"],
-        quantity: 1,
-        sppElement: item["Основное средство"],
         destination: rowWarehouses[id] || 'Не выбрано',
         selected: selectedRows[id] || false
       };
@@ -89,14 +86,13 @@ const Demontage = ({
     if (!isApiResponse(data) || !data?.refund_logistic?.length) return [];
 
     return data.refund_logistic.map((item: RefundLogisticItem, index: number) => {
-      const id = `${item["ОС"]}`;
+      const id = `${item["ОС"]}-${index}`;
       return {
         id,
         ns: item["БС"] || baseStation,
         oc: index + 1,
         name: item["Название основного средства"],
         quantity: item["Кол-во"] || 1,
-        sppElement: item["ОС"],
         destination: item["Куда "] || rowWarehouses[id] || 'Не выбрано',
         selected: selectedRows[id] || false,
         requestNumber: item["№ заявки"]
@@ -108,19 +104,18 @@ const Demontage = ({
   useEffect(() => {
     const selectedData: Record<string, any> = {};
     
-    // Обрабатываем данные из активной вкладки
     const currentData = activeTab === 'balance' ? balanceTableData : refundTableData;
     
     currentData.forEach(row => {
       if (selectedRows[row.id]) {
         selectedData[row.id] = {
           name: row.name,
-          sppElement: row.sppElement,
           quantity: row.quantity,
           requestNumber: row.requestNumber,
           baseStation: baseStation,
           destination: row.destination,
-          ns: row.ns
+          ns: row.ns,
+          oc: row.oc
         };
       }
     });
@@ -131,7 +126,7 @@ const Demontage = ({
   const filteredBalanceData = useMemo(() => {
     return balanceTableData.filter(row => {
       const matchesName = row.name.toLowerCase().includes(nameFilter.toLowerCase());
-      const matchesOc = ocFilter ? row.sppElement.toString().includes(ocFilter) : true;
+      const matchesOc = ocFilter ? String(row.oc).includes(ocFilter) : true;
       return matchesName && matchesOc;
     });
   }, [balanceTableData, nameFilter, ocFilter]);
@@ -139,7 +134,7 @@ const Demontage = ({
   const filteredRefundData = useMemo(() => {
     return refundTableData.filter(row => {
       const matchesName = row.name.toLowerCase().includes(nameFilter.toLowerCase());
-      const matchesOc = ocFilter ? row.sppElement.toString().includes(ocFilter) : true;
+      const matchesOc = ocFilter ? String(row.oc).includes(ocFilter) : true;
       return matchesName && matchesOc;
     });
   }, [refundTableData, nameFilter, ocFilter]);
@@ -275,8 +270,8 @@ const Demontage = ({
               </tr>
             </thead>
             <tbody>
-              {currentData.map((row: TableRow) => (
-                <tr key={row.id} className={row.selected ? 'bg-blue-50' : (row.oc % 2 === 0 ? 'bg-white' : 'bg-gray-50')}>
+              {currentData.map((row) => (
+                <tr key={row.id} className={row.selected ? 'bg-blue-50' : (Number(row.oc) % 2 === 0 ? 'bg-white' : 'bg-gray-50')}>
                   <td className="px-4 py-2 text-center border">
                     <input
                       type="checkbox"
@@ -285,9 +280,9 @@ const Demontage = ({
                       className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
                     />
                   </td>
-                  <td className="px-4 py-2 text-center border">{row.sppElement}</td>
+                  <td className="px-4 py-2 border">{row.oc}</td>
                   <td className="px-4 py-2 border">{row.name}</td>
-                  <td className="px-4 py-2 text-center border">{row.quantity}</td>
+                  <td className="px-4 py-2 text-center border">{row.quantity || 1}</td>
                   {activeTab === 'refund' && (
                     <td className="px-4 py-2 border">{row.requestNumber}</td>
                   )}
