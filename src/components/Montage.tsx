@@ -184,7 +184,7 @@ const Montage = ({
         <div className="mb-4 text-center">Загрузка данных...</div>
       )}
 
-      {filteredData.length > 0 ? (
+      {filteredData.length > 0 && !isFetching ? (
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white border border-gray-200">
             <thead>
