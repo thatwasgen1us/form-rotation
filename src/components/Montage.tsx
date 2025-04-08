@@ -5,6 +5,7 @@ interface MontageProps {
   selectedRows: Record<string, boolean>;
   onSelectChange: (selected: Record<string, boolean>) => void;
   onSelectedDataChange: (data: Record<string, any>) => void;
+  demontageBaseStation: string
 }
 
 interface TableRow {
@@ -24,7 +25,8 @@ const warehouses = ['KZ01', 'K026', 'KZ02', 'K046', 'K018', 'KZ03', 'T003', 'T00
 const Montage = ({ 
   selectedRows, 
   onSelectChange,
-  onSelectedDataChange 
+  onSelectedDataChange,
+  demontageBaseStation 
 }: MontageProps) => {
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>(warehouses[0]);
   const [nameFilter, setNameFilter] = useState<string>('');
@@ -221,7 +223,7 @@ const Montage = ({
                   <td className="px-4 py-2 text-center border">{row.count}</td>
                   <td className="px-4 py-2 text-center border">{row.sppElement}</td>
                   <td className="px-4 py-2 text-center border">{row.ns}</td>
-                  <td className="px-4 py-2 border">{row.destination}</td>
+                  <td className="px-4 py-2 border">{demontageBaseStation}</td>
                 </tr>
               ))}
             </tbody>
