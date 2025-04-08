@@ -38,7 +38,7 @@ interface TableRow {
   ns: string;
   sap: string | number;
   name: string;
-  quantity?: number;
+  count: number;
   destination: string;
   selected: boolean;
   requestNumber?: string;
@@ -77,6 +77,7 @@ const Demontage = ({
         ns: item["Сайт"] || baseStation,
         sap: item["Основное средство"],
         name: item["Название основного средства"],
+        count: 1, // Установлено значение по умолчанию 1
         destination: rowWarehouses[id] || 'Не выбрано',
         selected: selectedRows[id] || false
       };
@@ -94,7 +95,7 @@ const Demontage = ({
         ns: item["БС"] || baseStation,
         sap: index + 1,
         name: item["Название основного средства"],
-        quantity: item["Кол-во"] || 1,
+        count: item["Кол-во"] || 1,
         destination: item["Куда "] || rowWarehouses[id] || 'Не выбрано',
         selected: selectedRows[id] || false,
         requestNumber: item["№ заявки"]
@@ -112,7 +113,7 @@ const Demontage = ({
       if (selectedRows[row.id]) {
         selectedData[row.id] = {
           name: row.name,
-          quantity: row.quantity,
+          count: row.count,
           requestNumber: row.requestNumber,
           baseStation: baseStation,
           destination: row.destination,
@@ -288,7 +289,7 @@ const Demontage = ({
                   </td>
                   <td className="px-4 py-2 border">{row.sap}</td>
                   <td className="px-4 py-2 border">{row.name}</td>
-                  <td className="px-4 py-2 text-center border">{row.quantity || 1}</td>
+                  <td className="px-4 py-2 text-center border">{row.count}</td>
                   {activeTab === 'refund' && (
                     <td className="px-4 py-2 border">{row.requestNumber}</td>
                   )}
