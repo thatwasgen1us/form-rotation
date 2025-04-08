@@ -75,7 +75,7 @@ const Demontage = ({
         id,
         sap: item["Основное средство"],
         name: item["Название основного средства"],
-        count: 1, // Установлено значение по умолчанию 1
+        count: 1, 
         destination: rowWarehouses[id] || 'Не выбрано',
         selected: selectedRows[id] || false
       };
@@ -91,7 +91,7 @@ const Demontage = ({
       return {
         id,
         ns: item["БС"] || baseStation,
-        sap: index + 1,
+        sap: item["ОС"],
         name: item["Название основного средства"],
         count: item["Кол-во"] || 1,
         destination: item["Куда "] || rowWarehouses[id] || 'Не выбрано',
