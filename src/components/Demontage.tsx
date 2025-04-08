@@ -30,6 +30,7 @@ interface DemontageProps {
   rowWarehouses: Record<string, string>;
   onWarehouseChange: (warehouses: Record<string, string>) => void;
   onSelectedDataChange: (data: Record<string, any>) => void;
+  onBaseStationChange?: (station: string) => void;
 }
 
 interface TableRow {
@@ -48,7 +49,8 @@ const Demontage = ({
   onSelectChange,
   rowWarehouses,
   onWarehouseChange,
-  onSelectedDataChange
+  onSelectedDataChange,
+  onBaseStationChange
 }: DemontageProps) => {
   const warehouses = ['Не выбрано', 'KZ01', 'K026', 'KZ02', 'K046', 'K018', 'KZ03'];
   const [baseStation, setBaseStation] = useState<string>('NS00');
@@ -140,7 +142,11 @@ const Demontage = ({
   }, [refundTableData, nameFilter, ocFilter]);
 
   const handleStationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setBaseStation(e.target.value.toUpperCase());
+    const newStation = e.target.value.toUpperCase();
+    setBaseStation(newStation);
+    if (onBaseStationChange) {
+      onBaseStationChange(newStation); 
+    }
   };
 
   const handleNameFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
