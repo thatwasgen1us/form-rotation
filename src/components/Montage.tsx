@@ -125,8 +125,8 @@ const Montage = ({
   };
 
   return (
-    <div className="max-w-6xl p-4 mx-auto">
-      <h1 className="mb-6 text-2xl font-bold">Монтаж ТМЦ</h1>
+    <div className="max-w-6xl p-4 mx-auto ">
+      <h1 className="mb-6 text-2xl font-bold border-b pb-[66px]">Монтаж ТМЦ</h1>
 
       <div className="mb-8">
         <div className="flex flex-wrap items-end gap-4">
