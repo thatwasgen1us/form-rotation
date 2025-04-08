@@ -1,93 +1,149 @@
+import { skipToken } from '@reduxjs/toolkit/query';
 import { useMemo, useState, useEffect } from 'react';
-import { StorageItem, useGetStorageBalanceQuery } from '../api/api';
+import { useGetBaseBalanceQuery } from '../api/api';
 
-interface MontageProps {
+interface BalanceSiteItem {
+  "Название основного средства": string;
+  "Основное средство": string;
+  "Сайт": string;
+}
+
+interface RefundLogisticItem {
+  "БС": string;
+  "Код ПО": string;
+  "Кол-во": number;
+  "Комментарий логиста": string | null;
+  "Куда ": string;
+  "Название основного средства": string;
+  "ОС": string;
+  "№ заявки": string;
+}
+
+interface ApiResponse {
+  balance_site: BalanceSiteItem[];
+  refund_logistic: RefundLogisticItem[];
+}
+
+interface DemontageProps {
   selectedRows: Record<string, boolean>;
   onSelectChange: (selected: Record<string, boolean>) => void;
+  rowWarehouses: Record<string, string>;
+  onWarehouseChange: (warehouses: Record<string, string>) => void;
   onSelectedDataChange: (data: Record<string, any>) => void;
-  demontageBaseStation: string
+  onBaseStationChange?: (station: string) => void;
 }
 
 interface TableRow {
   id: string;
-  party: string;
-  sap: string;
+  sap: string | number;
   name: string;
-  sppElement: string;
+  count: number;
   destination: string;
   selected: boolean;
-  count: string;
+  requestNumber?: string;
 }
 
-const warehouses = ['KZ01', 'K026', 'KZ02', 'K046', 'K018', 'KZ03', 'T003', 'T001', 'TE01', 'Z720'] as const;
-
-const Montage = ({ 
-  selectedRows, 
+const Demontage = ({
+  selectedRows,
   onSelectChange,
+  rowWarehouses,
+  onWarehouseChange,
   onSelectedDataChange,
-  demontageBaseStation 
-}: MontageProps) => {
-  const [selectedWarehouse, setSelectedWarehouse] = useState<string>(warehouses[0]);
+  onBaseStationChange
+}: DemontageProps) => {
+  const warehouses = ['Не выбрано', 'KZ01', 'K026', 'KZ02', 'K046', 'K018', 'KZ03'];
+  const [baseStation, setBaseStation] = useState<string>('NS00');
   const [nameFilter, setNameFilter] = useState<string>('');
   const [ocFilter, setOcFilter] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'balance' | 'refund'>('balance');
 
-  const { data: apiData = [], isFetching } = useGetStorageBalanceQuery(selectedWarehouse, {
-    skip: !selectedWarehouse,
-  });
+  const { data, isFetching } = useGetBaseBalanceQuery(
+    baseStation.startsWith('NS00') && baseStation.length === 8 ? baseStation : skipToken
+  );
 
-  const tableData: TableRow[] = useMemo(() => {
-    if (!apiData?.length) return [];
-  
-    return apiData.map((item: StorageItem, index: number) => {
-      // Добавляем index к id для уникальности
-      const id = `${item["СПП-элемент"]}-${index}`;
+  const isApiResponse = (data: any): data is ApiResponse => {
+    return data && Array.isArray(data.balance_site) && Array.isArray(data.refund_logistic);
+  };
+
+  // Balance site table data
+  const balanceTableData: TableRow[] = useMemo(() => {
+    if (!isApiResponse(data) || !data?.balance_site?.length) return [];
+
+    return data.balance_site.map((item: BalanceSiteItem, index: number) => {
+      const id = `${item["Основное средство"]}-${index}`;
       return {
-        id,        
-        party: item["Партия"] || selectedWarehouse,
-        sap: String(item["Основное средство"]),
-        name: item["КрТекстМатериала"] || 'Неизвестное название',
-        sppElement: item["СПП-элемент"] || 'Неизвестный элемент',
-        destination: item["Склад"],
-        selected: selectedRows[id] || false,
-        count: item["Количество запаса в партии"]
+        id,
+        sap: item["Основное средство"],
+        name: item["Название основного средства"],
+        count: 1, // Установлено значение по умолчанию 1
+        destination: rowWarehouses[id] || 'Не выбрано',
+        selected: selectedRows[id] || false
       };
     });
-  }, [apiData, selectedWarehouse, selectedRows]);
+  }, [data, baseStation, rowWarehouses, selectedRows]);
+
+  // Refund logistic table data
+  const refundTableData: TableRow[] = useMemo(() => {
+    if (!isApiResponse(data) || !data?.refund_logistic?.length) return [];
+
+    return data.refund_logistic.map((item: RefundLogisticItem, index: number) => {
+      const id = `${item["ОС"]}-${index}`;
+      return {
+        id,
+        ns: item["БС"] || baseStation,
+        sap: index + 1,
+        name: item["Название основного средства"],
+        count: item["Кол-во"] || 1,
+        destination: item["Куда "] || rowWarehouses[id] || 'Не выбрано',
+        selected: selectedRows[id] || false,
+        requestNumber: item["№ заявки"]
+      };
+    });
+  }, [data, baseStation, rowWarehouses, selectedRows]);
 
   useEffect(() => {
     const selectedData: Record<string, any> = {};
     
-    tableData.forEach(row => {
+    const currentData = activeTab === 'balance' ? balanceTableData : refundTableData;
+    
+    currentData.forEach(row => {
       if (selectedRows[row.id]) {
         selectedData[row.id] = {
           name: row.name,
-          sppElement: row.sppElement,
           count: row.count,
-          warehouse: selectedWarehouse,
+          requestNumber: row.requestNumber,
+          baseStation: baseStation,
           destination: row.destination,
-          party: row.party,
           sap: row.sap
         };
       }
     });
 
     onSelectedDataChange(selectedData);
-  }, [selectedRows, tableData, selectedWarehouse, onSelectedDataChange]);
+  }, [selectedRows, balanceTableData, refundTableData, activeTab, baseStation, onSelectedDataChange]);
 
-  const filteredData = useMemo(() => {
-    const lowerNameFilter = nameFilter.toLowerCase();
-    const lowerOcFilter = ocFilter.toLowerCase();
-
-    return tableData.filter(row => {
-      const nameMatch = row.name.toLowerCase().includes(lowerNameFilter);
-      const ocMatch = row.sppElement.toLowerCase().includes(lowerOcFilter);
-      
-      return nameMatch && (ocFilter ? ocMatch : true);
+  const filteredBalanceData = useMemo(() => {
+    return balanceTableData.filter(row => {
+      const matchesName = row.name.toLowerCase().includes(nameFilter.toLowerCase());
+      const matchesOc = ocFilter ? String(row.sap).includes(ocFilter) : true;
+      return matchesName && matchesOc;
     });
-  }, [tableData, nameFilter, ocFilter]);
+  }, [balanceTableData, nameFilter, ocFilter]);
 
-  const handleWarehouseChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedWarehouse(e.target.value);
+  const filteredRefundData = useMemo(() => {
+    return refundTableData.filter(row => {
+      const matchesName = row.name.toLowerCase().includes(nameFilter.toLowerCase());
+      const matchesOc = ocFilter ? String(row.sap).includes(ocFilter) : true;
+      return matchesName && matchesOc;
+    });
+  }, [refundTableData, nameFilter, ocFilter]);
+
+  const handleStationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newStation = e.target.value.toUpperCase();
+    setBaseStation(newStation);
+    if (onBaseStationChange) {
+      onBaseStationChange(newStation); 
+    }
   };
 
   const handleNameFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,53 +155,67 @@ const Montage = ({
   };
 
   const handleRowSelect = (id: string) => {
-    const newSelected = { 
-      ...selectedRows, 
-      [id]: !selectedRows[id] 
-    };
-    console.log('Selected rows:', newSelected); // Для отладки
+    const newSelected = { ...selectedRows, [id]: !selectedRows[id] };
     onSelectChange(newSelected);
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     const isChecked = e.target.checked;
-    const newSelected = tableData.reduce((acc, row) => {
+    const currentData = activeTab === 'balance' ? balanceTableData : refundTableData;
+    const newSelected = currentData.reduce((acc, row) => {
       acc[row.id] = isChecked;
       return acc;
     }, {} as Record<string, boolean>);
     onSelectChange(newSelected);
   };
 
-  const selectedCount = Object.values(selectedRows).filter(Boolean).length;
-  const allSelected = tableData.length > 0 && selectedCount === tableData.length;
-
-  const getRowClassName = (row: TableRow) => {
-    const baseClass = row.selected ? 'bg-blue-50' : 'bg-white';
-    return `${baseClass} hover:bg-gray-100`;
+  const handleWarehouseChange = (id: string, warehouse: string) => {
+    const newWarehouses = { ...rowWarehouses, [id]: warehouse };
+    onWarehouseChange(newWarehouses);
   };
 
+  const selectedCount = Object.values(selectedRows).filter(Boolean).length;
+  const currentData = activeTab === 'balance' ? filteredBalanceData : filteredRefundData;
+  const totalData = activeTab === 'balance' ? balanceTableData : refundTableData;
+
   return (
-    <div className="max-w-6xl p-4 mx-auto ">
-      <h1 className="mb-6 text-2xl font-bold border-b pb-[66px]">Монтаж ТМЦ</h1>
+    <div className="max-w-6xl p-4 mx-auto">
+      <h1 className="mb-6 text-2xl font-bold">Демонтаж ОС</h1>
+
+      <div className="mb-4">
+        <div className="flex border-b">
+          <button
+            className={`px-4 py-2 font-medium ${activeTab === 'balance' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+            onClick={() => setActiveTab('balance')}
+          >
+            Основные средства
+          </button>
+          <button
+            className={`px-4 py-2 font-medium ${activeTab === 'refund' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+            onClick={() => setActiveTab('refund')}
+          >
+            Логистика возвратов
+          </button>
+        </div>
+      </div>
 
       <div className="mb-8">
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex-1 min-w-[200px]">
-            <label htmlFor="warehouse" className="block mb-2 font-medium">
-              Склад:
+            <label htmlFor="baseStation" className="block mb-2 font-medium">
+              Номер базовой станции:
             </label>
-            <select
-              id="warehouse"
-              value={selectedWarehouse}
-              onChange={handleWarehouseChange}
+            <input
+              type="text"
+              id="baseStation"
+              value={baseStation}
+              onChange={handleStationChange}
               className="w-full p-2 border border-gray-300 rounded"
-            >
-              {warehouses.map(warehouse => (
-                <option key={warehouse} value={warehouse}>
-                  {warehouse}
-                </option>
-              ))}
-            </select>
+              required
+              placeholder="Введите NS номер (например, NS001120)"
+              pattern="NS\d{6}"
+              title="Введите номер в формате NS001120"
+            />
           </div>
 
           <div className="flex-1 min-w-[200px]">
@@ -164,7 +234,7 @@ const Montage = ({
 
           <div className="flex-1 min-w-[200px]">
             <label htmlFor="ocFilter" className="block mb-2 font-medium">
-              Фильтр по СПП:
+              Фильтр по №OC:
             </label>
             <input
               type="text"
@@ -172,7 +242,7 @@ const Montage = ({
               value={ocFilter}
               onChange={handleOcFilterChange}
               className="w-full p-2 border border-gray-300 rounded"
-              placeholder="Введите номер СПП"
+              placeholder="Введите номер OC"
             />
           </div>
         </div>
@@ -182,7 +252,7 @@ const Montage = ({
         <div className="mb-4 text-center">Загрузка данных...</div>
       )}
 
-      {filteredData.length > 0 && !isFetching ? (
+      {currentData.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white border border-gray-200">
             <thead>
@@ -191,21 +261,20 @@ const Montage = ({
                   <input
                     type="checkbox"
                     onChange={handleSelectAll}
-                    checked={allSelected}
+                    checked={selectedCount === totalData.length && totalData.length > 0}
                     className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
                   />
                 </th>
                 <th className="px-4 py-2 border">№ OC</th>
                 <th className="px-4 py-2 border">Наименование</th>
                 <th className="px-4 py-2 border">Количество</th>
-                <th className="px-4 py-2 border">СПП Элемент</th>
-                <th className="px-4 py-2 border">Партия</th>
+                {activeTab === 'refund' && <th className="px-4 py-2 border">№ заявки</th>}
                 <th className="px-4 py-2 border">Куда</th>
               </tr>
             </thead>
             <tbody>
-              {filteredData.map((row: TableRow) => (
-                <tr key={row.id} className={getRowClassName(row)}>
+              {currentData.map((row) => (
+                <tr key={row.id} className={row.selected ? 'bg-blue-50' : (Number(row.sap) % 2 === 0 ? 'bg-white' : 'bg-gray-50')}>
                   <td className="px-4 py-2 text-center border">
                     <input
                       type="checkbox"
@@ -217,21 +286,34 @@ const Montage = ({
                   <td className="px-4 py-2 border">{row.sap}</td>
                   <td className="px-4 py-2 border">{row.name}</td>
                   <td className="px-4 py-2 text-center border">{row.count}</td>
-                  <td className="px-4 py-2 text-center border">{row.sppElement}</td>
-                  <td className="px-4 py-2 text-center border">{row.party}</td>
-                  <td className="px-4 py-2 border">{demontageBaseStation}</td>
+                  {activeTab === 'refund' && (
+                    <td className="px-4 py-2 border">{row.requestNumber}</td>
+                  )}
+                  <td className="px-4 py-2 border">
+                    <select
+                      value={row.destination}
+                      onChange={(e) => handleWarehouseChange(row.id, e.target.value)}
+                      className="w-full p-1 border border-gray-300 rounded"
+                    >
+                      {warehouses.map(warehouse => (
+                        <option key={warehouse} value={warehouse}>
+                          {warehouse}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
           <div className="mt-2 text-sm text-gray-600">
-            Выбрано: {selectedCount} из {tableData.length}
+            Выбрано: {selectedCount} из {totalData.length}
           </div>
         </div>
-      ) : !isFetching && selectedWarehouse && (
+      ) : !isFetching && baseStation.startsWith('NS') && (
         <div className="text-center text-gray-500">
-          {tableData.length === 0
-            ? `Нет данных для склада ${selectedWarehouse}`
+          {totalData.length === 0
+            ? `Нет данных для базовой станции ${baseStation}`
             : 'Нет результатов по заданным фильтрам'}
         </div>
       )}
@@ -239,4 +321,4 @@ const Montage = ({
   );
 };
 
-export default Montage;
+export default Demontage;
