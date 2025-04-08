@@ -19,7 +19,7 @@ interface TableRow {
   count: string;
 }
 
-const warehouses = ['KZ01', 'K026', 'KZ02', 'K046', 'K018', 'KZ03', 'T003', 'T001'] as const;
+const warehouses = ['KZ01', 'K026', 'KZ02', 'K046', 'K018', 'KZ03', 'T003', 'T001', 'TE01', 'Z720'] as const;
 
 const Montage = ({ 
   selectedRows, 
