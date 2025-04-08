@@ -111,7 +111,6 @@ const Demontage = ({
         selectedData[row.id] = {
           name: row.name,
           count: row.count,
-          requestNumber: row.requestNumber,
           baseStation: baseStation,
           destination: row.destination,
           sap: row.sap
