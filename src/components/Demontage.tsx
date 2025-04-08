@@ -35,7 +35,6 @@ interface DemontageProps {
 
 interface TableRow {
   id: string;
-  ns: string;
   sap: string | number;
   name: string;
   count: number;
@@ -74,7 +73,6 @@ const Demontage = ({
       const id = `${item["Основное средство"]}-${index}`;
       return {
         id,
-        ns: item["Сайт"] || baseStation,
         sap: item["Основное средство"],
         name: item["Название основного средства"],
         count: 1, // Установлено значение по умолчанию 1
@@ -117,7 +115,6 @@ const Demontage = ({
           requestNumber: row.requestNumber,
           baseStation: baseStation,
           destination: row.destination,
-          ns: row.ns,
           sap: row.sap
         };
       }
