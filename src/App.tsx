@@ -27,6 +27,7 @@ function App() {
   const [showSelectedList, setShowSelectedList] = useState(false);
   const [demontageData, setDemontageData] = useState<Record<string, any>>({});
   const [montageData, setMontageData] = useState<Record<string, any>>({});
+  const [demontageBaseStation, setDemontageBaseStation] = useState('NS00')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,11 +109,13 @@ function App() {
           rowWarehouses={rowWarehouses}
           onWarehouseChange={setRowWarehouses}
           onSelectedDataChange={setDemontageData}
+          onBaseStationChange={setDemontageBaseStation}
         />
         <Montage 
           selectedRows={montageSelected}
           onSelectChange={setMontageSelected}
           onSelectedDataChange={setMontageData}
+          demontageBaseStation={demontageBaseStation}
         />
       </div>
       
