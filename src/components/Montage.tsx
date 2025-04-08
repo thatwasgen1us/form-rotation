@@ -10,10 +10,9 @@ interface MontageProps {
 
 interface TableRow {
   id: string;
-  ns: string;
-  oc: string;
+  party: string;
+  sap: string;
   name: string;
-  quantity: number;
   sppElement: string;
   destination: string;
   selected: boolean;
@@ -43,11 +42,10 @@ const Montage = ({
       // Добавляем index к id для уникальности
       const id = `${item["СПП-элемент"]}-${index}`;
       return {
-        id,
-        ns: item["Партия"] || selectedWarehouse,
-        oc: String(item["Основное средство"]),
+        id,        
+        party: item["Партия"] || selectedWarehouse,
+        sap: String(item["Основное средство"]),
         name: item["КрТекстМатериала"] || 'Неизвестное название',
-        quantity: 1,
         sppElement: item["СПП-элемент"] || 'Неизвестный элемент',
         destination: item["Склад"],
         selected: selectedRows[id] || false,
@@ -56,7 +54,6 @@ const Montage = ({
     });
   }, [apiData, selectedWarehouse, selectedRows]);
 
-  // Отправка данных выбранных строк в родительский компонент
   useEffect(() => {
     const selectedData: Record<string, any> = {};
     
@@ -65,12 +62,11 @@ const Montage = ({
         selectedData[row.id] = {
           name: row.name,
           sppElement: row.sppElement,
-          quantity: row.quantity,
           count: row.count,
           warehouse: selectedWarehouse,
           destination: row.destination,
-          ns: row.ns,
-          oc: row.oc
+          party: row.party,
+          sap: row.sap
         };
       }
     });
@@ -218,11 +214,11 @@ const Montage = ({
                       className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
                     />
                   </td>
-                  <td className="px-4 py-2 border">{row.oc}</td>
+                  <td className="px-4 py-2 border">{row.sap}</td>
                   <td className="px-4 py-2 border">{row.name}</td>
                   <td className="px-4 py-2 text-center border">{row.count}</td>
                   <td className="px-4 py-2 text-center border">{row.sppElement}</td>
-                  <td className="px-4 py-2 text-center border">{row.ns}</td>
+                  <td className="px-4 py-2 text-center border">{row.party}</td>
                   <td className="px-4 py-2 border">{demontageBaseStation}</td>
                 </tr>
               ))}
