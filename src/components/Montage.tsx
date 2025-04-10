@@ -142,7 +142,7 @@ const Montage = ({
       
       if (prev.includes(warehouse)) {
         const result = prev.filter(w => w !== warehouse);
-        return result.length === 0 ? null : result; // Всегда оставляем хотя бы один склад выбранным
+        return result.length === 0 ? [warehouses[0]] : result; // Всегда оставляем хотя бы один склад выбранным
       } else {
         return [...prev, warehouse];
       }
