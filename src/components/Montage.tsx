@@ -17,7 +17,7 @@ interface TableRow {
   destination: string;
   selected: boolean;
   count: string;
-  warehouse: string
+  warehouse: string;
 }
 
 const warehouses = ['KZ01', 'K026', 'KZ02', 'K046', 'K018', 'KZ03', 'T003', 'T001', 'TE01', 'Z720'] as const;
@@ -81,6 +81,7 @@ const Montage = ({
       
       const sppElement = item["СПП-элемент"] || 'unknown';
       const id = `${sppElement}-${index}`;
+      const warehouseCode = item["Склад"] || '';
       
       return {
         id,
@@ -90,7 +91,8 @@ const Montage = ({
         sppElement,
         destination: item["Склад"] || '',
         selected: selectedRows?.[id] || false,
-        count: item["Количество запаса в партии"] || '0'
+        count: item["Количество запаса в партии"] || '0',
+        warehouse: warehouseCode  // Явно заполняем поле warehouse из поля "Склад"
       };
     }).filter(Boolean) as TableRow[];
   }, [apiData, selectedRows]);
@@ -107,7 +109,7 @@ const Montage = ({
           name: row.name,
           sppElement: row.sppElement,
           count: row.count,
-          warehouse: row.destination,
+          warehouse: row.warehouse,  // Используем поле warehouse вместо destination
           destination: row.destination,
           party: row.party,
           sap: row.sap
