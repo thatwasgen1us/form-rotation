@@ -1,11 +1,11 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StorageItem, useGetStorageBalanceQuery } from '../api/api';
 
 interface MontageProps {
   selectedRows: Record<string, boolean>;
   onSelectChange: (selected: Record<string, boolean>) => void;
   onSelectedDataChange: (data: Record<string, any>) => void;
-  demontageBaseStation: string
+  demontageBaseStation: string;
 }
 
 interface TableRow {
@@ -21,29 +21,50 @@ interface TableRow {
 
 const warehouses = ['KZ01', 'K026', 'KZ02', 'K046', 'K018', 'KZ03', 'T003', 'T001', 'TE01', 'Z720'] as const;
 
-const Montage = ({ 
-  selectedRows, 
+const Montage = ({
+  selectedRows,
   onSelectChange,
   onSelectedDataChange,
-  demontageBaseStation 
+  demontageBaseStation
 }: MontageProps) => {
-  const [selectedWarehouse, setSelectedWarehouse] = useState<string>(warehouses[0]);
+  const [selectedWarehouses, setSelectedWarehouses] = useState<string[]>([warehouses[0]]);
   const [nameFilter, setNameFilter] = useState<string>('');
   const [ocFilter, setOcFilter] = useState<string>('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { data: apiData = [], isFetching } = useGetStorageBalanceQuery(selectedWarehouse, {
-    skip: !selectedWarehouse,
-  });
+  // Закрытие dropdown при клике вне его области
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Получаем данные для всех выбранных складов
+  const warehouseQueries = selectedWarehouses.map(warehouse =>
+    useGetStorageBalanceQuery(warehouse, { skip: !warehouse })
+  );
+
+  const isFetching = warehouseQueries.some(query => query.isFetching);
+  const apiData = useMemo(() => {
+    return warehouseQueries.flatMap(query => query.data || []);
+  }, [warehouseQueries]);
 
   const tableData: TableRow[] = useMemo(() => {
     if (!apiData?.length) return [];
-  
+
     return apiData.map((item: StorageItem, index: number) => {
-      // Добавляем index к id для уникальности
       const id = `${item["СПП-элемент"]}-${index}`;
       return {
-        id,        
-        party: item["Партия"] || selectedWarehouse,
+        id,
+        party: item["Партия"] || item["Склад"],
         sap: String(item["Основное средство"]),
         name: item["КрТекстМатериала"] || 'Неизвестное название',
         sppElement: item["СПП-элемент"] || 'Неизвестный элемент',
@@ -52,18 +73,18 @@ const Montage = ({
         count: item["Количество запаса в партии"]
       };
     });
-  }, [apiData, selectedWarehouse, selectedRows]);
+  }, [apiData, selectedRows]);
 
   useEffect(() => {
     const selectedData: Record<string, any> = {};
-    
+
     tableData.forEach(row => {
       if (selectedRows[row.id]) {
         selectedData[row.id] = {
           name: row.name,
           sppElement: row.sppElement,
           count: row.count,
-          warehouse: selectedWarehouse,
+          warehouse: row.destination,
           destination: row.destination,
           party: row.party,
           sap: row.sap
@@ -72,7 +93,7 @@ const Montage = ({
     });
 
     onSelectedDataChange(selectedData);
-  }, [selectedRows, tableData, selectedWarehouse, onSelectedDataChange]);
+  }, [selectedRows, tableData, onSelectedDataChange]);
 
   const filteredData = useMemo(() => {
     const lowerNameFilter = nameFilter.toLowerCase();
@@ -81,13 +102,27 @@ const Montage = ({
     return tableData.filter(row => {
       const nameMatch = row.name.toLowerCase().includes(lowerNameFilter);
       const ocMatch = row.sppElement.toLowerCase().includes(lowerOcFilter);
-      
+
       return nameMatch && (ocFilter ? ocMatch : true);
     });
   }, [tableData, nameFilter, ocFilter]);
 
-  const handleWarehouseChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedWarehouse(e.target.value);
+  const handleWarehouseChange = (warehouse: string) => {
+    setSelectedWarehouses(prev => {
+      if (prev.includes(warehouse)) {
+        return prev.filter(w => w !== warehouse);
+      } else {
+        return [...prev, warehouse];
+      }
+    });
+  };
+
+  const handleSelectAllWarehouses = (selectAll: boolean) => {
+    if (selectAll) {
+      setSelectedWarehouses([...warehouses]);
+    } else {
+      setSelectedWarehouses([]);
+    }
   };
 
   const handleNameFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,11 +134,10 @@ const Montage = ({
   };
 
   const handleRowSelect = (id: string) => {
-    const newSelected = { 
-      ...selectedRows, 
-      [id]: !selectedRows[id] 
+    const newSelected = {
+      ...selectedRows,
+      [id]: !selectedRows[id]
     };
-    console.log('Selected rows:', newSelected); // Для отладки
     onSelectChange(newSelected);
   };
 
@@ -125,27 +159,67 @@ const Montage = ({
   };
 
   return (
-    <div className="max-w-6xl p-4 mx-auto ">
+    <div className="max-w-6xl p-4 mx-auto">
       <h1 className="mb-4 text-2xl font-bold border-b pb-[66px]">Монтаж ТМЦ</h1>
 
       <div className="mb-8">
         <div className="flex flex-wrap items-end gap-4">
-          <div className="flex-1 min-w-[200px]">
-            <label htmlFor="warehouse" className="block mb-2 font-medium">
-              Склад:
+          <div className="flex-1 min-w-[200px]" ref={dropdownRef}>
+            <label className="block mb-2 font-medium">
+              Склады:
             </label>
-            <select
-              id="warehouse"
-              value={selectedWarehouse}
-              onChange={handleWarehouseChange}
-              className="w-full p-2 border border-gray-300 rounded"
-            >
-              {warehouses.map(warehouse => (
-                <option key={warehouse} value={warehouse}>
-                  {warehouse}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <button
+                type="button"
+                className="flex items-center justify-between w-full p-2 text-left bg-white border border-gray-300 rounded"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+              >
+                <span>
+                  {selectedWarehouses.length === 0
+                    ? 'Выберите склады'
+                    : selectedWarehouses.length === warehouses.length
+                      ? 'Все склады'
+                      : `${selectedWarehouses.length} выбрано`}
+                </span>
+                <svg
+                  className={`w-5 h-5 transition-transform ${dropdownOpen ? 'transform rotate-180' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {dropdownOpen && (
+                <div className="absolute z-10 w-full mt-1 overflow-auto bg-white border border-gray-300 rounded shadow-lg max-h-60">
+                  <div className="p-2 border-b border-gray-200">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedWarehouses.length === warehouses.length}
+                        onChange={(e) => handleSelectAllWarehouses(e.target.checked)}
+                        className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
+                      />
+                      <span className="ml-2">Выбрать все</span>
+                    </label>
+                  </div>
+                  {warehouses.map(warehouse => (
+                    <div key={warehouse} className="p-2 hover:bg-gray-50">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedWarehouses.includes(warehouse)}
+                          onChange={() => handleWarehouseChange(warehouse)}
+                          className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
+                        />
+                        <span className="ml-2">{warehouse}</span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex-1 min-w-[200px]">
@@ -176,8 +250,13 @@ const Montage = ({
             />
           </div>
         </div>
-        <div>
-        Количество элементов: {filteredData.length}
+        <div className="mt-2">
+          Количество элементов: {filteredData.length}
+          {selectedWarehouses.length > 0 && (
+            <span className="ml-4">
+              Выбранные склады: {selectedWarehouses.join(', ')}
+            </span>
+          )}
         </div>
       </div>
 
@@ -231,10 +310,10 @@ const Montage = ({
             Выбрано: {selectedCount} из {tableData.length}
           </div>
         </div>
-      ) : !isFetching && selectedWarehouse && (
+      ) : !isFetching && selectedWarehouses.length > 0 && (
         <div className="text-center text-gray-500">
           {tableData.length === 0
-            ? `Нет данных для склада ${selectedWarehouse}`
+            ? `Нет данных для выбранных складов (${selectedWarehouses.join(', ')})`
             : 'Нет результатов по заданным фильтрам'}
         </div>
       )}
