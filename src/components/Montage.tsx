@@ -48,38 +48,50 @@ const Montage = ({
   }, []);
 
   // Получаем данные для всех выбранных складов
-  const warehouseQueries = selectedWarehouses.map(warehouse =>
-    useGetStorageBalanceQuery(warehouse, { skip: !warehouse })
-  );
+  // Защита от undefined: проверка, что selectedWarehouses существует и является массивом
+  const warehouseQueries = useMemo(() => {
+    if (!selectedWarehouses || !Array.isArray(selectedWarehouses)) {
+      return [];
+    }
+    return selectedWarehouses.map(warehouse =>
+      useGetStorageBalanceQuery(warehouse, { skip: !warehouse })
+    );
+  }, [selectedWarehouses]);
 
   const isFetching = warehouseQueries.some(query => query.isFetching);
+  
   const apiData = useMemo(() => {
+    if (!warehouseQueries || warehouseQueries.length === 0) {
+      return [];
+    }
     return warehouseQueries.flatMap(query => query.data || []);
   }, [warehouseQueries]);
 
   const tableData: TableRow[] = useMemo(() => {
-    if (!apiData?.length) return [];
+    if (!apiData || !apiData.length) return [];
 
     return apiData.map((item: StorageItem, index: number) => {
-      const id = `${item["СПП-элемент"]}-${index}`;
+      const id = `${item["СПП-элемент"] || 'unknown'}-${index}`;
       return {
         id,
-        party: item["Партия"] || item["Склад"],
-        sap: String(item["Основное средство"]),
+        party: item["Партия"] || item["Склад"] || '',
+        sap: String(item["Основное средство"] || ''),
         name: item["КрТекстМатериала"] || 'Неизвестное название',
         sppElement: item["СПП-элемент"] || 'Неизвестный элемент',
-        destination: item["Склад"],
+        destination: item["Склад"] || '',
         selected: selectedRows[id] || false,
-        count: item["Количество запаса в партии"]
+        count: item["Количество запаса в партии"] || '0'
       };
     });
   }, [apiData, selectedRows]);
 
   useEffect(() => {
+    if (!tableData) return;
+    
     const selectedData: Record<string, any> = {};
 
     tableData.forEach(row => {
-      if (selectedRows[row.id]) {
+      if (selectedRows && selectedRows[row.id]) {
         selectedData[row.id] = {
           name: row.name,
           sppElement: row.sppElement,
@@ -96,8 +108,10 @@ const Montage = ({
   }, [selectedRows, tableData, onSelectedDataChange]);
 
   const filteredData = useMemo(() => {
-    const lowerNameFilter = nameFilter.toLowerCase();
-    const lowerOcFilter = ocFilter.toLowerCase();
+    if (!tableData || !Array.isArray(tableData)) return [];
+    
+    const lowerNameFilter = (nameFilter || '').toLowerCase();
+    const lowerOcFilter = (ocFilter || '').toLowerCase();
 
     return tableData.filter(row => {
       const nameMatch = row.name.toLowerCase().includes(lowerNameFilter);
@@ -109,6 +123,9 @@ const Montage = ({
 
   const handleWarehouseChange = (warehouse: string) => {
     setSelectedWarehouses(prev => {
+      // Защита от undefined
+      if (!prev) return [warehouse];
+      
       if (prev.includes(warehouse)) {
         return prev.filter(w => w !== warehouse);
       } else {
@@ -150,7 +167,7 @@ const Montage = ({
     onSelectChange(newSelected);
   };
 
-  const selectedCount = Object.values(selectedRows).filter(Boolean).length;
+  const selectedCount = Object.values(selectedRows || {}).filter(Boolean).length;
   const allSelected = tableData.length > 0 && selectedCount === tableData.length;
 
   const getRowClassName = (row: TableRow) => {
@@ -175,7 +192,7 @@ const Montage = ({
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
                 <span>
-                  {selectedWarehouses.length === 0
+                  {!selectedWarehouses || selectedWarehouses.length === 0
                     ? 'Выберите склады'
                     : selectedWarehouses.length === warehouses.length
                       ? 'Все склады'
@@ -197,7 +214,7 @@ const Montage = ({
                     <label className="flex items-center">
                       <input
                         type="checkbox"
-                        checked={selectedWarehouses.length === warehouses.length}
+                        checked={selectedWarehouses && selectedWarehouses.length === warehouses.length}
                         onChange={(e) => handleSelectAllWarehouses(e.target.checked)}
                         className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
                       />
@@ -209,7 +226,7 @@ const Montage = ({
                       <label className="flex items-center">
                         <input
                           type="checkbox"
-                          checked={selectedWarehouses.includes(warehouse)}
+                          checked={selectedWarehouses && selectedWarehouses.includes(warehouse)}
                           onChange={() => handleWarehouseChange(warehouse)}
                           className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
                         />
@@ -252,7 +269,7 @@ const Montage = ({
         </div>
         <div className="mt-2">
           Количество элементов: {filteredData.length}
-          {selectedWarehouses.length > 0 && (
+          {selectedWarehouses && selectedWarehouses.length > 0 && (
             <span className="ml-4">
               Выбранные склады: {selectedWarehouses.join(', ')}
             </span>
@@ -310,9 +327,9 @@ const Montage = ({
             Выбрано: {selectedCount} из {tableData.length}
           </div>
         </div>
-      ) : !isFetching && selectedWarehouses.length > 0 && (
+      ) : !isFetching && selectedWarehouses && selectedWarehouses.length > 0 && (
         <div className="text-center text-gray-500">
-          {tableData.length === 0
+          {!tableData || tableData.length === 0
             ? `Нет данных для выбранных складов (${selectedWarehouses.join(', ')})`
             : 'Нет результатов по заданным фильтрам'}
         </div>
