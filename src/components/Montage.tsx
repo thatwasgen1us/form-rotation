@@ -28,7 +28,8 @@ const Montage = ({
   onSelectedDataChange,
   demontageBaseStation
 }: MontageProps) => {
-  const [selectedWarehouses, setSelectedWarehouses] = useState<string[]>([warehouses[0]]);
+  // Изменяем начальное состояние на пустой массив
+  const [selectedWarehouses, setSelectedWarehouses] = useState<string[]>([]);
   const [nameFilter, setNameFilter] = useState<string>('');
   const [ocFilter, setOcFilter] = useState<string>('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -92,7 +93,7 @@ const Montage = ({
         destination: item["Склад"] || '',
         selected: selectedRows?.[id] || false,
         count: item["Количество запаса в партии"] || '0',
-        warehouse: warehouseCode  // Явно заполняем поле warehouse из поля "Склад"
+        warehouse: warehouseCode
       };
     }).filter(Boolean) as TableRow[];
   }, [apiData, selectedRows]);
@@ -109,7 +110,7 @@ const Montage = ({
           name: row.name,
           sppElement: row.sppElement,
           count: row.count,
-          warehouse: row.warehouse,  // Используем поле warehouse вместо destination
+          warehouse: row.warehouse,
           destination: row.destination,
           party: row.party,
           sap: row.sap
@@ -141,8 +142,8 @@ const Montage = ({
       if (!prev || !Array.isArray(prev)) return [warehouse];
       
       if (prev.includes(warehouse)) {
-        const result = prev.filter(w => w !== warehouse);
-        return result.length === 0 ? [warehouses[0]] : result; // Всегда оставляем хотя бы один склад выбранным
+        // Позволяем убрать все склады
+        return prev.filter(w => w !== warehouse);
       } else {
         return [...prev, warehouse];
       }
@@ -153,7 +154,7 @@ const Montage = ({
     if (selectAll) {
       setSelectedWarehouses([...warehouses]);
     } else {
-      setSelectedWarehouses([warehouses[0]]); // Оставляем первый склад выбранным по умолчанию
+      setSelectedWarehouses([]); // Сбрасываем выбор всех складов
     }
   };
 
@@ -358,11 +359,13 @@ const Montage = ({
             Выбрано: {selectedCount} из {tableData.length}
           </div>
         </div>
-      ) : !isFetching && selectedWarehouses && selectedWarehouses.length > 0 && (
+      ) : !isFetching && (
         <div className="text-center text-gray-500">
-          {!tableData || tableData.length === 0
-            ? `Нет данных для выбранных складов (${selectedWarehouses.join(', ')})`
-            : 'Нет результатов по заданным фильтрам'}
+          {selectedWarehouses.length === 0
+            ? 'Выберите склады для загрузки данных'
+            : !tableData || tableData.length === 0
+              ? `Нет данных для выбранных складов (${selectedWarehouses.join(', ')})`
+              : 'Нет результатов по заданным фильтрам'}
         </div>
       )}
     </div>
