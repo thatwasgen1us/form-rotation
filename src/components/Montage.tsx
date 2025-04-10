@@ -325,6 +325,7 @@ const Montage = ({
                 <th className="px-4 py-2 border">Количество</th>
                 <th className="px-4 py-2 border">СПП Элемент</th>
                 <th className="px-4 py-2 border">Партия</th>
+                <th className="px-4 py-2 border">Склад</th>
                 <th className="px-4 py-2 border">Куда</th>
               </tr>
             </thead>
@@ -344,6 +345,7 @@ const Montage = ({
                   <td className="px-4 py-2 text-center border">{row.count}</td>
                   <td className="px-4 py-2 text-center border">{row.sppElement}</td>
                   <td className="px-4 py-2 text-center border">{row.party}</td>
+                  <td className="px-4 py-2 text-center border">{row.warehouse}</td>
                   <td className="px-4 py-2 border">{demontageBaseStation}</td>
                 </tr>
               ))}
