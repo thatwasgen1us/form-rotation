@@ -176,6 +176,9 @@ const Montage = ({
             />
           </div>
         </div>
+        <div>
+        Количество элементов: {filteredData.length}
+        </div>
       </div>
 
       {isFetching && (
