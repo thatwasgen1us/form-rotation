@@ -47,51 +47,61 @@ const Montage = ({
     };
   }, []);
 
-  // Получаем данные для всех выбранных складов
-  // Защита от undefined: проверка, что selectedWarehouses существует и является массивом
-  const warehouseQueries = useMemo(() => {
-    if (!selectedWarehouses || !Array.isArray(selectedWarehouses)) {
-      return [];
-    }
-    return selectedWarehouses.map(warehouse =>
-      useGetStorageBalanceQuery(warehouse, { skip: !warehouse })
-    );
-  }, [selectedWarehouses]);
+  // Объявляем результаты запросов для каждого склада отдельно
+  // Это нужно чтобы избежать создания запросов внутри useMemo
+  const warehouseQueryResults = warehouses.map(warehouse => {
+    const isSelected = selectedWarehouses.includes(warehouse);
+    return useGetStorageBalanceQuery(warehouse, { skip: !isSelected });
+  });
 
-  const isFetching = warehouseQueries.some(query => query.isFetching);
+  // Фильтруем только запросы к выбранным складам
+  const selectedWarehouseQueries = useMemo(() => {
+    return warehouses
+      .filter(warehouse => selectedWarehouses.includes(warehouse))
+      .map((_, index) => warehouseQueryResults[index]);
+  }, [selectedWarehouses, warehouseQueryResults]);
+
+  const isFetching = useMemo(() => {
+    return selectedWarehouseQueries.some(query => query?.isFetching);
+  }, [selectedWarehouseQueries]);
   
   const apiData = useMemo(() => {
-    if (!warehouseQueries || warehouseQueries.length === 0) {
+    if (!selectedWarehouseQueries || selectedWarehouseQueries.length === 0) {
       return [];
     }
-    return warehouseQueries.flatMap(query => query.data || []);
-  }, [warehouseQueries]);
+    return selectedWarehouseQueries.flatMap(query => query?.data || []);
+  }, [selectedWarehouseQueries]);
 
   const tableData: TableRow[] = useMemo(() => {
-    if (!apiData || !apiData.length) return [];
+    if (!apiData || !Array.isArray(apiData) || apiData.length === 0) return [];
 
     return apiData.map((item: StorageItem, index: number) => {
-      const id = `${item["СПП-элемент"] || 'unknown'}-${index}`;
+      if (!item) return null;
+      
+      const sppElement = item["СПП-элемент"] || 'unknown';
+      const id = `${sppElement}-${index}`;
+      
       return {
         id,
         party: item["Партия"] || item["Склад"] || '',
         sap: String(item["Основное средство"] || ''),
         name: item["КрТекстМатериала"] || 'Неизвестное название',
-        sppElement: item["СПП-элемент"] || 'Неизвестный элемент',
+        sppElement,
         destination: item["Склад"] || '',
-        selected: selectedRows[id] || false,
+        selected: selectedRows?.[id] || false,
         count: item["Количество запаса в партии"] || '0'
       };
-    });
+    }).filter(Boolean) as TableRow[];
   }, [apiData, selectedRows]);
 
   useEffect(() => {
-    if (!tableData) return;
+    if (!tableData || !Array.isArray(tableData) || tableData.length === 0) return;
+    if (!selectedRows) return;
     
     const selectedData: Record<string, any> = {};
 
     tableData.forEach(row => {
-      if (selectedRows && selectedRows[row.id]) {
+      if (selectedRows[row.id]) {
         selectedData[row.id] = {
           name: row.name,
           sppElement: row.sppElement,
@@ -108,12 +118,14 @@ const Montage = ({
   }, [selectedRows, tableData, onSelectedDataChange]);
 
   const filteredData = useMemo(() => {
-    if (!tableData || !Array.isArray(tableData)) return [];
+    if (!tableData || !Array.isArray(tableData) || tableData.length === 0) return [];
     
     const lowerNameFilter = (nameFilter || '').toLowerCase();
     const lowerOcFilter = (ocFilter || '').toLowerCase();
 
     return tableData.filter(row => {
+      if (!row || !row.name || !row.sppElement) return false;
+      
       const nameMatch = row.name.toLowerCase().includes(lowerNameFilter);
       const ocMatch = row.sppElement.toLowerCase().includes(lowerOcFilter);
 
@@ -123,11 +135,11 @@ const Montage = ({
 
   const handleWarehouseChange = (warehouse: string) => {
     setSelectedWarehouses(prev => {
-      // Защита от undefined
-      if (!prev) return [warehouse];
+      if (!prev || !Array.isArray(prev)) return [warehouse];
       
       if (prev.includes(warehouse)) {
-        return prev.filter(w => w !== warehouse);
+        const result = prev.filter(w => w !== warehouse);
+        return result.length === 0 ? [warehouses[0]] : result; // Всегда оставляем хотя бы один склад выбранным
       } else {
         return [...prev, warehouse];
       }
@@ -138,7 +150,7 @@ const Montage = ({
     if (selectAll) {
       setSelectedWarehouses([...warehouses]);
     } else {
-      setSelectedWarehouses([]);
+      setSelectedWarehouses([warehouses[0]]); // Оставляем первый склад выбранным по умолчанию
     }
   };
 
@@ -151,6 +163,8 @@ const Montage = ({
   };
 
   const handleRowSelect = (id: string) => {
+    if (!selectedRows) return;
+    
     const newSelected = {
       ...selectedRows,
       [id]: !selectedRows[id]
@@ -159,18 +173,30 @@ const Montage = ({
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!tableData || !Array.isArray(tableData)) return;
+    
     const isChecked = e.target.checked;
     const newSelected = tableData.reduce((acc, row) => {
-      acc[row.id] = isChecked;
+      if (row && row.id) {
+        acc[row.id] = isChecked;
+      }
       return acc;
     }, {} as Record<string, boolean>);
     onSelectChange(newSelected);
   };
 
-  const selectedCount = Object.values(selectedRows || {}).filter(Boolean).length;
-  const allSelected = tableData.length > 0 && selectedCount === tableData.length;
+  const selectedCount = useMemo(() => {
+    if (!selectedRows || typeof selectedRows !== 'object') return 0;
+    return Object.values(selectedRows).filter(Boolean).length;
+  }, [selectedRows]);
+  
+  const allSelected = useMemo(() => {
+    if (!tableData || !Array.isArray(tableData) || tableData.length === 0) return false;
+    return tableData.length > 0 && selectedCount === tableData.length;
+  }, [tableData, selectedCount]);
 
   const getRowClassName = (row: TableRow) => {
+    if (!row) return '';
     const baseClass = row.selected ? 'bg-blue-50' : 'bg-white';
     return `${baseClass} hover:bg-gray-100`;
   };
