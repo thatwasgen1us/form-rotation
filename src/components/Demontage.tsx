@@ -245,6 +245,9 @@ const Demontage = ({
             />
           </div>
         </div>
+        <div>
+        Количество элементов: {currentData.length}
+        </div>
       </div>
 
       {isFetching && (
