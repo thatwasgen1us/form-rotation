@@ -20,6 +20,10 @@ interface TableRow {
   warehouse: string;
 }
 
+type WarehouseQueries = {
+  [key in typeof warehouses[number]]: ReturnType<typeof useGetStorageBalanceQuery>;
+};
+
 const warehouses = ['KZ01', 'K026', 'KZ02', 'K046', 'K018', 'KZ03', 'T003', 'T001', 'TE01', 'Z720'] as const;
 
 const Montage = ({
@@ -28,8 +32,7 @@ const Montage = ({
   onSelectedDataChange,
   demontageBaseStation
 }: MontageProps) => {
-  // Изменяем начальное состояние на пустой массив
-  const [selectedWarehouses, setSelectedWarehouses] = useState<string[]>([]);
+  const [selectedWarehouses, setSelectedWarehouses] = useState<string[]>([warehouses[0]]);
   const [nameFilter, setNameFilter] = useState<string>('');
   const [ocFilter, setOcFilter] = useState<string>('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -49,33 +52,45 @@ const Montage = ({
     };
   }, []);
 
-  // Объявляем результаты запросов для каждого склада отдельно
-  // Это нужно чтобы избежать создания запросов внутри useMemo
-  const warehouseQueryResults = warehouses.map(warehouse => {
-    const isSelected = selectedWarehouses.includes(warehouse);
-    return useGetStorageBalanceQuery(warehouse, { skip: !isSelected });
-  });
+  const kz01Query = useGetStorageBalanceQuery('KZ01', { skip: !selectedWarehouses.includes('KZ01') });
+  const k026Query = useGetStorageBalanceQuery('K026', { skip: !selectedWarehouses.includes('K026') });
+  const kz02Query = useGetStorageBalanceQuery('KZ02', { skip: !selectedWarehouses.includes('KZ02') });
+  const k046Query = useGetStorageBalanceQuery('K046', { skip: !selectedWarehouses.includes('K046') });
+  const k018Query = useGetStorageBalanceQuery('K018', { skip: !selectedWarehouses.includes('K018') });
+  const kz03Query = useGetStorageBalanceQuery('KZ03', { skip: !selectedWarehouses.includes('KZ03') });
+  const t003Query = useGetStorageBalanceQuery('T003', { skip: !selectedWarehouses.includes('T003') });
+  const t001Query = useGetStorageBalanceQuery('T001', { skip: !selectedWarehouses.includes('T001') });
+  const te01Query = useGetStorageBalanceQuery('TE01', { skip: !selectedWarehouses.includes('TE01') });
+  const z720Query = useGetStorageBalanceQuery('Z720', { skip: !selectedWarehouses.includes('Z720') });
 
-  // Фильтруем только запросы к выбранным складам
-  const selectedWarehouseQueries = useMemo(() => {
-    return warehouses
-      .filter(warehouse => selectedWarehouses.includes(warehouse))
-      .map((_, index) => warehouseQueryResults[index]);
-  }, [selectedWarehouses, warehouseQueryResults]);
+  // Собираем все запросы в объект для удобного доступа
+  const warehouseQueries: WarehouseQueries = useMemo(() => ({
+    KZ01: kz01Query,
+    K026: k026Query,
+    KZ02: kz02Query,
+    K046: k046Query,
+    K018: k018Query,
+    KZ03: kz03Query,
+    T003: t003Query,
+    T001: t001Query,
+    TE01: te01Query,
+    Z720: z720Query
+  }), [kz01Query, k026Query, kz02Query, k046Query, k018Query, kz03Query, t003Query, t001Query, te01Query, z720Query]);
 
-  const isFetching = useMemo(() => {
-    return selectedWarehouseQueries.some(query => query?.isFetching);
-  }, [selectedWarehouseQueries]);
-  
-  const apiData = useMemo(() => {
-    if (!selectedWarehouseQueries || selectedWarehouseQueries.length === 0) {
-      return [];
-    }
-    return selectedWarehouseQueries.flatMap(query => query?.data || []);
-  }, [selectedWarehouseQueries]);
+  const { isFetching, error, apiData } = useMemo(() => {
+    const activeQueries = selectedWarehouses
+      .filter((wh): wh is typeof warehouses[number] => warehouses.includes(wh as any))
+      .map(wh => warehouseQueries[wh]);
+    
+    return {
+      isFetching: activeQueries.some(query => query.isFetching),
+      error: activeQueries.find(query => query.error)?.error,
+      apiData: activeQueries.flatMap(query => query.data || [])
+    };
+  }, [selectedWarehouses, warehouseQueries]);
 
   const tableData: TableRow[] = useMemo(() => {
-    if (!apiData || !Array.isArray(apiData) || apiData.length === 0) return [];
+    if (!apiData || !Array.isArray(apiData)) return [];
 
     return apiData.map((item: StorageItem, index: number) => {
       if (!item) return null;
@@ -99,14 +114,11 @@ const Montage = ({
   }, [apiData, selectedRows]);
 
   useEffect(() => {
-    if (!tableData || !Array.isArray(tableData) || tableData.length === 0) return;
-    if (!selectedRows) return;
+    if (!tableData || !selectedRows) return;
     
-    const selectedData: Record<string, any> = {};
-
-    tableData.forEach(row => {
+    const selectedData = tableData.reduce((acc, row) => {
       if (selectedRows[row.id]) {
-        selectedData[row.id] = {
+        acc[row.id] = {
           name: row.name,
           sppElement: row.sppElement,
           count: row.count,
@@ -116,105 +128,81 @@ const Montage = ({
           sap: row.sap
         };
       }
-    });
+      return acc;
+    }, {} as Record<string, any>);
 
     onSelectedDataChange(selectedData);
   }, [selectedRows, tableData, onSelectedDataChange]);
 
   const filteredData = useMemo(() => {
-    if (!tableData || !Array.isArray(tableData) || tableData.length === 0) return [];
+    if (!tableData) return [];
     
-    const lowerNameFilter = (nameFilter || '').toLowerCase();
-    const lowerOcFilter = (ocFilter || '').toLowerCase();
+    const lowerNameFilter = nameFilter.toLowerCase();
+    const lowerOcFilter = ocFilter.toLowerCase();
 
     return tableData.filter(row => {
-      if (!row || !row.name || !row.sppElement) return false;
-      
       const nameMatch = row.name.toLowerCase().includes(lowerNameFilter);
       const ocMatch = row.sppElement.toLowerCase().includes(lowerOcFilter);
-
       return nameMatch && (ocFilter ? ocMatch : true);
     });
   }, [tableData, nameFilter, ocFilter]);
 
   const handleWarehouseChange = (warehouse: string) => {
-    setSelectedWarehouses(prev => {
-      if (!prev || !Array.isArray(prev)) return [warehouse];
-      
-      if (prev.includes(warehouse)) {
-        // Позволяем убрать все склады
-        return prev.filter(w => w !== warehouse);
-      } else {
-        return [...prev, warehouse];
-      }
-    });
+    setSelectedWarehouses(prev => 
+      prev.includes(warehouse) 
+        ? prev.length > 1 
+          ? prev.filter(w => w !== warehouse)
+          : prev
+        : [...prev, warehouse]
+    );
   };
 
   const handleSelectAllWarehouses = (selectAll: boolean) => {
-    if (selectAll) {
-      setSelectedWarehouses([...warehouses]);
-    } else {
-      setSelectedWarehouses([]); // Сбрасываем выбор всех складов
-    }
-  };
-
-  const handleNameFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNameFilter(e.target.value);
-  };
-
-  const handleOcFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setOcFilter(e.target.value);
+    setSelectedWarehouses(selectAll ? [...warehouses] : [warehouses[0]]);
   };
 
   const handleRowSelect = (id: string) => {
     if (!selectedRows) return;
-    
-    const newSelected = {
-      ...selectedRows,
-      [id]: !selectedRows[id]
-    };
-    onSelectChange(newSelected);
+    onSelectChange({ ...selectedRows, [id]: !selectedRows[id] });
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!tableData || !Array.isArray(tableData)) return;
-    
-    const isChecked = e.target.checked;
-    const newSelected = tableData.reduce((acc, row) => {
-      if (row && row.id) {
-        acc[row.id] = isChecked;
-      }
-      return acc;
-    }, {} as Record<string, boolean>);
+    if (!tableData) return;
+    const newSelected = tableData.reduce((acc, row) => ({ ...acc, [row.id]: e.target.checked }), {});
     onSelectChange(newSelected);
   };
 
-  const selectedCount = useMemo(() => {
-    if (!selectedRows || typeof selectedRows !== 'object') return 0;
-    return Object.values(selectedRows).filter(Boolean).length;
-  }, [selectedRows]);
-  
-  const allSelected = useMemo(() => {
-    if (!tableData || !Array.isArray(tableData) || tableData.length === 0) return false;
-    return tableData.length > 0 && selectedCount === tableData.length;
-  }, [tableData, selectedCount]);
+  const selectedCount = useMemo(() => 
+    selectedRows ? Object.values(selectedRows).filter(Boolean).length : 0, 
+  [selectedRows]);
 
-  const getRowClassName = (row: TableRow) => {
-    if (!row) return '';
-    const baseClass = row.selected ? 'bg-blue-50' : 'bg-white';
-    return `${baseClass} hover:bg-gray-100`;
-  };
+  const allSelected = useMemo(() => 
+    tableData.length > 0 && selectedCount === tableData.length, 
+  [tableData, selectedCount]);
+
+  const getRowClassName = (row: TableRow) => 
+    `${row.selected ? 'bg-blue-50' : 'bg-white'} hover:bg-gray-100`;
 
   return (
     <div className="max-w-6xl p-4 mx-auto">
       <h1 className="mb-4 text-2xl font-bold border-b pb-[66px]">Монтаж ТМЦ</h1>
 
+      {/* Уведомления о состоянии */}
+      {error && (
+        <div className="p-4 mb-4 text-red-600 bg-red-100 rounded">
+          Ошибка загрузки данных: {error.message}
+        </div>
+      )}
+      {isFetching && (
+        <div className="mb-4 text-center text-blue-600">Загрузка данных...</div>
+      )}
+
+      {/* Панель фильтров */}
       <div className="mb-8">
         <div className="flex flex-wrap items-end gap-4">
+          {/* Выбор складов */}
           <div className="flex-1 min-w-[200px]" ref={dropdownRef}>
-            <label className="block mb-2 font-medium">
-              Склады:
-            </label>
+            <label className="block mb-2 font-medium">Склады:</label>
             <div className="relative">
               <button
                 type="button"
@@ -222,11 +210,9 @@ const Montage = ({
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
                 <span>
-                  {!selectedWarehouses || selectedWarehouses.length === 0
-                    ? 'Выберите склады'
-                    : selectedWarehouses.length === warehouses.length
-                      ? 'Все склады'
-                      : `${selectedWarehouses.length} выбрано`}
+                  {selectedWarehouses.length === warehouses.length
+                    ? 'Все склады'
+                    : `${selectedWarehouses.length} выбрано`}
                 </span>
                 <svg
                   className={`w-5 h-5 transition-transform ${dropdownOpen ? 'transform rotate-180' : ''}`}
@@ -244,7 +230,7 @@ const Montage = ({
                     <label className="flex items-center">
                       <input
                         type="checkbox"
-                        checked={selectedWarehouses && selectedWarehouses.length === warehouses.length}
+                        checked={selectedWarehouses.length === warehouses.length}
                         onChange={(e) => handleSelectAllWarehouses(e.target.checked)}
                         className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
                       />
@@ -256,11 +242,14 @@ const Montage = ({
                       <label className="flex items-center">
                         <input
                           type="checkbox"
-                          checked={selectedWarehouses && selectedWarehouses.includes(warehouse)}
+                          checked={selectedWarehouses.includes(warehouse)}
                           onChange={() => handleWarehouseChange(warehouse)}
                           className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
                         />
-                        <span className="ml-2">{warehouse}</span>
+                        <span className="ml-2">
+                          {warehouse}
+                          {warehouseQueries[warehouse]?.isFetching && ' (загрузка...)'}
+                        </span>
                       </label>
                     </div>
                   ))}
@@ -269,6 +258,7 @@ const Montage = ({
             </div>
           </div>
 
+          {/* Фильтр по названию */}
           <div className="flex-1 min-w-[200px]">
             <label htmlFor="nameFilter" className="block mb-2 font-medium">
               Фильтр по названию:
@@ -277,12 +267,13 @@ const Montage = ({
               type="text"
               id="nameFilter"
               value={nameFilter}
-              onChange={handleNameFilterChange}
+              onChange={(e) => setNameFilter(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded"
               placeholder="Введите часть названия"
             />
           </div>
 
+          {/* Фильтр по СПП */}
           <div className="flex-1 min-w-[200px]">
             <label htmlFor="ocFilter" className="block mb-2 font-medium">
               Фильтр по СПП:
@@ -291,15 +282,17 @@ const Montage = ({
               type="text"
               id="ocFilter"
               value={ocFilter}
-              onChange={handleOcFilterChange}
+              onChange={(e) => setOcFilter(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded"
               placeholder="Введите номер СПП"
             />
           </div>
         </div>
-        <div className="mt-2">
-          Количество элементов: {filteredData.length}
-          {selectedWarehouses && selectedWarehouses.length > 0 && (
+        
+        {/* Информация о выбранных данных */}
+        <div className="mt-2 text-sm text-gray-600">
+          <span>Количество элементов: {filteredData.length}</span>
+          {selectedWarehouses.length > 0 && (
             <span className="ml-4">
               Выбранные склады: {selectedWarehouses.join(', ')}
             </span>
@@ -307,11 +300,8 @@ const Montage = ({
         </div>
       </div>
 
-      {isFetching && (
-        <div className="mb-4 text-center">Загрузка данных...</div>
-      )}
-
-      {filteredData.length > 0 && !isFetching ? (
+      {/* Таблица данных */}
+      {filteredData.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white border border-gray-200">
             <thead>
@@ -334,7 +324,7 @@ const Montage = ({
               </tr>
             </thead>
             <tbody>
-              {filteredData.map((row: TableRow) => (
+              {filteredData.map((row) => (
                 <tr key={row.id} className={getRowClassName(row)}>
                   <td className="px-4 py-2 text-center border">
                     <input
@@ -359,13 +349,11 @@ const Montage = ({
             Выбрано: {selectedCount} из {tableData.length}
           </div>
         </div>
-      ) : !isFetching && (
-        <div className="text-center text-gray-500">
-          {selectedWarehouses.length === 0
-            ? 'Выберите склады для загрузки данных'
-            : !tableData || tableData.length === 0
-              ? `Нет данных для выбранных складов (${selectedWarehouses.join(', ')})`
-              : 'Нет результатов по заданным фильтрам'}
+      ) : (
+        <div className="py-8 text-center text-gray-500">
+          {tableData.length === 0
+            ? `Нет данных для выбранных складов (${selectedWarehouses.join(', ')})`
+            : 'Нет результатов по заданным фильтрам'}
         </div>
       )}
     </div>
