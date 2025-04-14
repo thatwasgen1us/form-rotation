@@ -123,7 +123,7 @@ const Montage = ({
           sppElement: row.sppElement,
           count: row.count,
           warehouse: row.warehouse,
-          destination: row.destination,
+          destination: demontageBaseStation,
           party: row.party,
           sap: row.sap
         };
