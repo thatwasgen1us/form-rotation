@@ -22,11 +22,15 @@ export const Api = createApi({
     GetStorageBalance: builder.query<StorageItem[], string>({
       query: (base) => `storage/${base}`,
     }),
+    GetReportNames: builder.query<string[], void>({
+      query: () => `name_report`,
+    }),
     SendForm: builder.mutation<{
       message: string,
       success: boolean
     }, {
-      items: FormItem[]
+      items: FormItem[],
+      reportName: string
     }>({
       query: (body) => ({
         url: '/report',
@@ -40,7 +44,8 @@ export const Api = createApi({
 export const {
   useGetBaseBalanceQuery,
   useGetStorageBalanceQuery,
-  useSendFormMutation
+  useSendFormMutation,
+  useGetReportNamesQuery
 } = Api;
 
 // Типы для оборудования
