@@ -138,7 +138,7 @@ function App() {
       </div>
       
       {showSelectedList && selectedItems.length > 0 && (
-        <div className="fixed p-4 overflow-y-auto bg-white border rounded-lg shadow-lg bottom-20 right-4 max-h-60">
+        <div className="fixed p-4 overflow-y-auto bg-white border rounded-lg shadow-lg top-10 right-4 max-h-60">
           <h3 className="mb-2 font-bold">Выбранные элементы:</h3>
           <ul className="space-y-2">
             {selectedItems.map((item, index) => (
