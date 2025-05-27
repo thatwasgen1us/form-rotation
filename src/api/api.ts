@@ -9,7 +9,7 @@ interface FormItem {
 export const Api = createApi({
   reducerPath: "api",
   baseQuery: fetchBaseQuery({
-    baseUrl: "https://wsns-lavrov2.corp.tele2.ru:5000/api/last_data:8000/",
+    baseUrl: "https://wsns-lavrov2.corp.tele2.ru:8000/",
     prepareHeaders: (headers) => {
       headers.set('Content-Type', 'application/json');
       return headers;
